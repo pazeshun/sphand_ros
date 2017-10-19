@@ -1,3 +1,3 @@
-# sphand_driver
+# sphand_ros
 
-Packages which provide ROS tools for the Suction Pinching Hand.
+Packages which provide ROS tools for the Suction Pinching Hand after Ver.7.0.
