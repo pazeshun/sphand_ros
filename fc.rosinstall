@@ -1,0 +1,8 @@
+- git:
+    local-name: force_proximity_ros
+    uri: https://github.com/knorth55/FA-I-sensor.git
+    version: jsk_apc
+- git:
+    local-name: sphand_ros
+    uri: https://github.com/pazeshun/sphand_ros.git
+    version: master
