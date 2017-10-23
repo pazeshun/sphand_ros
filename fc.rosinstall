@@ -6,3 +6,7 @@
     local-name: sphand_ros
     uri: https://github.com/pazeshun/sphand_ros.git
     version: master
+- git:
+    local-name: dynamixel_motor
+    uri: https://github.com/pazeshun/dynamixel_motor.git
+    version: gripper-v6-devel
