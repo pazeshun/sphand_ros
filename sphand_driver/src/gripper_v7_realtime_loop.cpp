@@ -149,10 +149,145 @@ public:
   }
 };  // end class SPICommunication
 
+class PressureSensorDriver
+{
+private:
+  SPICommunication spi_;
+  uint16_t dig_T1_;
+  int16_t dig_T2_;
+  int16_t dig_T3_;
+  uint16_t dig_P1_;
+  int16_t dig_P2_;
+  int16_t dig_P3_;
+  int16_t dig_P4_;
+  int16_t dig_P5_;
+  int16_t dig_P6_;
+  int16_t dig_P7_;
+  int16_t dig_P8_;
+  int16_t dig_P9_;
+
+public:
+  PressureSensorDriver(const std::string& file = "/dev/spidev2.0", const uint32_t max_speed = 8000000)
+    : spi_(file, max_speed, 8)
+  {
+  }
+
+  ~PressureSensorDriver()
+  {
+  }
+
+  void initBME()
+  {
+    spi_.transfer((0xF5 & 0x7F));
+    spi_.transfer(0x20);
+    spi_.transfer((0xF4 & 0x7F));
+    spi_.transfer(0x27);
+  }
+
+  void readTrim()
+  {
+    uint8_t data[24];
+    spi_.transfer((0x88 | 0x80));
+    for (int i = 0; i < 24; i++)
+    {
+      data[i] = spi_.transfer(0);
+    }
+
+    dig_T1_ = (data[1] << 8) | data[0];
+    dig_T2_ = (data[3] << 8) | data[2];
+    dig_T3_ = (data[5] << 8) | data[4];
+    dig_P1_ = (data[7] << 8) | data[6];
+    dig_P2_ = (data[9] << 8) | data[8];
+    dig_P3_ = (data[11] << 8) | data[10];
+    dig_P4_ = (data[13] << 8) | data[12];
+    dig_P5_ = (data[15] << 8) | data[14];
+    dig_P6_ = (data[17] << 8) | data[16];
+    dig_P7_ = (data[19] << 8) | data[18];
+    dig_P8_ = (data[21] << 8) | data[20];
+    dig_P9_ = (data[23] << 8) | data[22];
+  }
+
+  bool init()
+  {
+    if (!spi_.start())
+    {
+      return false;
+    }
+    initBME();
+    readTrim();
+
+    return true;
+  }
+
+  void readRawPressureAndTemperature(uint32_t* pres_raw, uint32_t* temp_raw)
+  {
+    uint8_t data[8];
+    spi_.transfer((0xF7 | 0x80));
+    for (int i = 0; i < 8; i++)
+    {
+      data[i] = spi_.transfer(0x00);
+    }
+    *pres_raw = data[0];
+    *pres_raw = ((*pres_raw) << 8) | data[1];
+    *pres_raw = ((*pres_raw) << 4) | (data[2] >> 4);
+    *temp_raw = data[3];
+    *temp_raw = ((*temp_raw) << 8) | data[4];
+    *temp_raw = ((*temp_raw) << 4) | (data[5] >> 4);
+  }
+
+  int32_t calibTemperature(int32_t temp_raw)
+  {
+    int32_t var1, var2, T;
+    var1 = ((((temp_raw >> 3) - ((int32_t)dig_T1_ << 1))) * ((int32_t)dig_T2_)) >> 11;
+    var2 =
+        (((((temp_raw >> 4) - ((int32_t)dig_T1_)) * ((temp_raw >> 4) - ((int32_t)dig_T1_))) >> 12) * ((int32_t)dig_T3_)) >>
+        14;
+
+    return (var1 + var2);
+  }
+
+  uint32_t calibPressure(int32_t pres_raw, int32_t t_fine)
+  {
+    int32_t var1, var2;
+    var1 = (((int32_t)t_fine) >> 1) - (int32_t)64000;
+    var2 = (((var1 >> 2) * (var1 >> 2)) >> 11) * ((int32_t)dig_P6_);
+    var2 = var2 + ((var1 * ((int32_t)dig_P5_)) << 1);
+    var2 = (var2 >> 2) + (((int32_t)dig_P4_) << 16);
+    var1 = (((dig_P3_ * (((var1 >> 2) * (var1 >> 2)) >> 13)) >> 3) + ((((int32_t)dig_P2_) * var1) >> 1)) >> 18;
+    var1 = ((((32768 + var1)) * ((int32_t)dig_P1_)) >> 15);
+    if (var1 == 0)
+    {
+      return 0;
+    }
+    uint32_t P = (((uint32_t)(((int32_t)1048576) - pres_raw) - (var2 >> 12))) * 3125;
+    if (P < 0x80000000)
+    {
+      P = (P << 1) / ((uint32_t)var1);
+    }
+    else
+    {
+      P = (P / (uint32_t)var1) * 2;
+    }
+    var1 = (((int32_t)dig_P9_) * ((int32_t)(((P >> 3) * (P >> 3)) >> 13))) >> 12;
+    var2 = (((int32_t)(P >> 2)) * ((int32_t)dig_P8_)) >> 13;
+    P = (uint32_t)((int32_t)P + ((var1 + var2 + dig_P7_) >> 4));
+    return P;
+  }
+
+  double getPressure()
+  {
+    uint32_t pres_raw, temp_raw;
+    readRawPressureAndTemperature(&pres_raw, &temp_raw);
+    return ((double)calibPressure(pres_raw, calibTemperature(temp_raw)) / 100.0);
+  }
+};  // end class PressureSensorDriver
+
 class GripperRealtimeLoop : public hardware_interface::RobotHW
 {
 private:
   ros::NodeHandle nh_;
+
+  PressureSensorDriver pres_sen_;
 
   // For multi-threaded spinning
   boost::shared_ptr<ros::AsyncSpinner> subscriber_spinner_;
@@ -161,6 +296,8 @@ private:
 public:
   GripperRealtimeLoop()
   {
+    pres_sen_.init();
+
     // Start spinning
     nh_.setCallbackQueue(&subscriber_queue_);
     subscriber_spinner_.reset(new ros::AsyncSpinner(1, &subscriber_queue_));
@@ -174,6 +311,7 @@ public:
 
   void read()
   {
+    ROS_INFO("%lf", pres_sen_.getPressure());
   }
 
   void write()
@@ -193,7 +331,7 @@ int main(int argc, char** argv)
   spinner.start();
 
   // Control loop
-  ros::Rate rate(100);
+  ros::Rate rate(10);
   ros::Time prev_time = ros::Time::now();
 
   while (ros::ok())
