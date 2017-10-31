@@ -8,6 +8,7 @@
 
 #include <ros/ros.h>
 #include <ros/callback_queue.h>
+#include <std_msgs/Float64.h>
 #include <hardware_interface/robot_hw.h>
 #include <controller_manager/controller_manager.h>
 
@@ -148,6 +149,9 @@ private:
 
   PressureSensorDriver pres_sen_;
 
+  // ROS publishers
+  ros::Publisher pressure_pub_;
+
   // For multi-threaded spinning
   boost::shared_ptr<ros::AsyncSpinner> subscriber_spinner_;
   ros::CallbackQueue subscriber_queue_;
@@ -156,6 +160,9 @@ public:
   GripperRealtimeLoop()
   {
     pres_sen_.init();
+
+    // Publisher for pressure
+    pressure_pub_ = nh_.advertise<std_msgs::Float64>("pressure", 1);
 
     // Start spinning
     nh_.setCallbackQueue(&subscriber_queue_);
@@ -170,7 +177,9 @@ public:
 
   void read()
   {
-    ROS_INFO("%lf", pres_sen_.getPressure());
+    std_msgs::Float64 pressure;
+    pressure.data = pres_sen_.getPressure();
+    pressure_pub_.publish(pressure);
   }
 
   void write()
@@ -190,7 +199,7 @@ int main(int argc, char** argv)
   spinner.start();
 
   // Control loop
-  ros::Rate rate(10);
+  ros::Rate rate(100);
   ros::Time prev_time = ros::Time::now();
 
   while (ros::ok())

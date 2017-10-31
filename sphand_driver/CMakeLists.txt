@@ -8,6 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
   hardware_interface
   message_generation
   roscpp
+  std_msgs
 )
 
 catkin_python_setup()
@@ -44,6 +45,7 @@ catkin_package(
   hardware_interface
   message_runtime
   roscpp
+  std_msgs
 )
 
 ###########
