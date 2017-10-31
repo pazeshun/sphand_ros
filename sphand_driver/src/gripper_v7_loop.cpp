@@ -189,7 +189,7 @@ public:
 
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "gripper_v7_realtime_loop_node");
+  ros::init(argc, argv, "gripper_v7_loop_node");
 
   GripperRealtimeLoop gripper;
   controller_manager::ControllerManager cm(&gripper);
