@@ -8,6 +8,7 @@
 
 #include <ros/ros.h>
 #include <ros/callback_queue.h>
+#include <std_msgs/UInt16.h>
 #include <std_msgs/Float64.h>
 #include <hardware_interface/robot_hw.h>
 #include <controller_manager/controller_manager.h>
@@ -142,6 +143,41 @@ public:
   }
 };  // end class PressureSensorDriver
 
+class FlexSensorDriver
+{
+private:
+  mraa::Spi spi_;
+  int sensor_num_;
+
+public:
+  FlexSensorDriver(const int spi_bus = 2, const int spi_cs = 1, const uint32_t max_speed = 1000000,
+                   const int sensor_num = 2)
+    : spi_(spi_bus, spi_cs), sensor_num_(sensor_num)
+  {
+    spi_.frequency(max_speed);
+  }
+
+  ~FlexSensorDriver()
+  {
+  }
+
+  void getFlex(std::vector<uint16_t>* flex)
+  {
+    (*flex).clear();
+    uint8_t tx[3] = {};
+    uint8_t rx[3];
+    for (int sensor_no = 0; sensor_no < 2; sensor_no++)
+    {
+      tx[0] = (0x18 | sensor_no) << 3;
+      spi_.transfer(tx, rx, 3);
+      uint16_t value = (rx[0] & 0x01) << 11;
+      value |= rx[1] << 3;
+      value |= rx[2] >> 5;
+      (*flex).push_back(value);
+    }
+  }
+};  //end class FlexSensorDriver
+
 class GripperRealtimeLoop : public hardware_interface::RobotHW
 {
 private:
@@ -149,20 +185,31 @@ private:
 
   PressureSensorDriver pres_sen_;
 
+  FlexSensorDriver flex_sen_;
+  std::vector<std::string> flex_names_;
+
   // ROS publishers
   ros::Publisher pressure_pub_;
+  std::map<std::string, ros::Publisher> flex_pub_;
 
   // For multi-threaded spinning
   boost::shared_ptr<ros::AsyncSpinner> subscriber_spinner_;
   ros::CallbackQueue subscriber_queue_;
 
 public:
-  GripperRealtimeLoop()
+  GripperRealtimeLoop(const std::vector<std::string>& flex_names)
+    : flex_names_(flex_names)
   {
     pres_sen_.init();
 
     // Publisher for pressure
     pressure_pub_ = nh_.advertise<std_msgs::Float64>("pressure", 1);
+
+    // Publisher for flex
+    for (int i = 0; i < flex_names_.size(); i++)
+    {
+      flex_pub_[flex_names_[i]] = nh_.advertise<std_msgs::UInt16>("flex/" + flex_names_[i], 1);
+    }
 
     // Start spinning
     nh_.setCallbackQueue(&subscriber_queue_);
@@ -177,9 +224,20 @@ public:
 
   void read()
   {
+    // Get and publish pressure
     std_msgs::Float64 pressure;
     pressure.data = pres_sen_.getPressure();
     pressure_pub_.publish(pressure);
+
+    // Get and publish flex
+    std::vector<uint16_t> flex;
+    flex_sen_.getFlex(&flex);
+    for (int i = 0; i < flex_names_.size(); i++)
+    {
+      std_msgs::UInt16 value;
+      value.data = flex[i];
+      flex_pub_[flex_names_[i]].publish(value);
+    }
   }
 
   void write()
@@ -191,7 +249,15 @@ int main(int argc, char** argv)
 {
   ros::init(argc, argv, "gripper_v7_loop_node");
 
-  GripperRealtimeLoop gripper;
+  std::vector<std::string> flex_names;
+
+  if (!(ros::param::get("~flex_names", flex_names)))
+  {
+    ROS_ERROR("Couldn't get necessary parameters");
+    return 0;
+  }
+
+  GripperRealtimeLoop gripper(flex_names);
   controller_manager::ControllerManager cm(&gripper);
 
   // For non-realtime spinner thread
