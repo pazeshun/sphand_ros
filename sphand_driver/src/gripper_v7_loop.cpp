@@ -150,8 +150,8 @@ private:
   int sensor_num_;
 
 public:
-  FlexSensorDriver(const int spi_bus = 2, const int spi_cs = 1, const uint32_t max_speed = 1000000,
-                   const int sensor_num = 2)
+  FlexSensorDriver(const int sensor_num = 2, const int spi_bus = 2, const int spi_cs = 1,
+                   const uint32_t max_speed = 1000000)
     : spi_(spi_bus, spi_cs), sensor_num_(sensor_num)
   {
     spi_.frequency(max_speed);
@@ -166,7 +166,7 @@ public:
     (*flex).clear();
     uint8_t tx[3] = {};
     uint8_t rx[3];
-    for (int sensor_no = 0; sensor_no < 2; sensor_no++)
+    for (int sensor_no = 0; sensor_no < sensor_num_; sensor_no++)
     {
       tx[0] = (0x18 | sensor_no) << 3;
       spi_.transfer(tx, rx, 3);
@@ -176,7 +176,7 @@ public:
       (*flex).push_back(value);
     }
   }
-};  //end class FlexSensorDriver
+};  // end class FlexSensorDriver
 
 class GripperLoop : public hardware_interface::RobotHW
 {
@@ -198,7 +198,7 @@ private:
 
 public:
   GripperLoop(const std::vector<std::string>& flex_names)
-    : flex_names_(flex_names)
+    : flex_names_(flex_names), flex_sen_(flex_names.size())
   {
     pres_sen_.init();
 
