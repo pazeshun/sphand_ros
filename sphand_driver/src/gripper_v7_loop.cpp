@@ -178,7 +178,7 @@ public:
   }
 };  //end class FlexSensorDriver
 
-class GripperRealtimeLoop : public hardware_interface::RobotHW
+class GripperLoop : public hardware_interface::RobotHW
 {
 private:
   ros::NodeHandle nh_;
@@ -197,7 +197,7 @@ private:
   ros::CallbackQueue subscriber_queue_;
 
 public:
-  GripperRealtimeLoop(const std::vector<std::string>& flex_names)
+  GripperLoop(const std::vector<std::string>& flex_names)
     : flex_names_(flex_names)
   {
     pres_sen_.init();
@@ -243,7 +243,7 @@ public:
   void write()
   {
   }
-};  // end class GripperRealtimeLoop
+};  // end class GripperLoop
 
 int main(int argc, char** argv)
 {
@@ -257,7 +257,7 @@ int main(int argc, char** argv)
     return 0;
   }
 
-  GripperRealtimeLoop gripper(flex_names);
+  GripperLoop gripper(flex_names);
   controller_manager::ControllerManager cm(&gripper);
 
   // For non-realtime spinner thread
