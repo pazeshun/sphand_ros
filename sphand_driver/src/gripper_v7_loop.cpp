@@ -163,7 +163,7 @@ public:
 
   void getFlex(std::vector<uint16_t>* flex)
   {
-    (*flex).clear();
+    flex->clear();
     uint8_t tx[3] = {};
     uint8_t rx[3];
     for (int sensor_no = 0; sensor_no < sensor_num_; sensor_no++)
@@ -173,7 +173,7 @@ public:
       uint16_t value = (rx[0] & 0x01) << 11;
       value |= rx[1] << 3;
       value |= rx[2] >> 5;
-      (*flex).push_back(value);
+      flex->push_back(value);
     }
   }
 };  // end class FlexSensorDriver
