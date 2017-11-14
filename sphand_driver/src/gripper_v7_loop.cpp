@@ -10,6 +10,8 @@
 #include <ros/callback_queue.h>
 #include <std_msgs/UInt16.h>
 #include <std_msgs/Float64.h>
+#include <force_proximity_ros/ProximityArray.h>
+#include <force_proximity_ros/Proximity.h>
 #include <hardware_interface/robot_hw.h>
 #include <controller_manager/controller_manager.h>
 
@@ -178,6 +180,180 @@ public:
   }
 };  // end class FlexSensorDriver
 
+class ProximitySensorDriver
+{
+private:
+  // Constants
+  enum
+  {
+    // 7-bit unshifted I2C address of Multiplexer (PCA9547D)
+    MUX_ADDR = 0x70,
+    // 7-bit unshifted I2C address of VCNL4040
+    VCNL4040_ADDR = 0x60,
+    // Command Registers
+    PS_CONF1 = 0x03,
+    PS_CONF3 = 0x04,
+    PS_DATA_L = 0x08,
+  };
+  const int sensor_num_;
+  // Sensitivity of touch/release detection
+  const int sensitivity_;
+  // exponential average weight parameter / cut-off frequency for high-pass filter
+  const double ea_;
+  // low-pass filtered proximity reading
+  std::vector<double> average_value_;
+  // FA-II value
+  std::vector<double> fa2_;
+  mraa::I2c i2c_;
+
+public:
+  ProximitySensorDriver(const int sensor_num = 1, const int i2c_bus = 0)
+    : sensor_num_(sensor_num), sensitivity_(1000), ea_(0.3), fa2_(sensor_num, 0), i2c_(i2c_bus)
+  {
+  }
+
+  ~ProximitySensorDriver()
+  {
+  }
+
+  mraa::Result setMultiplexerCh(const uint8_t mux_addr, const int8_t ch)
+  {
+    uint8_t tx;
+
+    if (ch == -1)
+    {
+      // No channel selected
+      tx &= 0xF7;
+    }
+    else if (0 <= ch && ch <= 7)
+    {
+      // Channel 0~7 selected
+      tx = (uint8_t)ch | 0x08;
+    }
+    else
+    {
+      ROS_ERROR("I2C Multiplexer has no channel %d", ch);
+      return mraa::ERROR_UNSPECIFIED;
+    }
+
+    i2c_.address(mux_addr);
+    return i2c_.writeByte(tx);
+  }
+
+  // Read from two Command Registers of VCNL4040
+  uint16_t readCommandRegVCNL4040(const uint8_t command_code)
+  {
+    i2c_.address(VCNL4040_ADDR);
+    uint16_t rx = i2c_.readWordReg(command_code);
+    return ((rx & 0xFF) << 8) | ((rx >> 8) & 0xFF);
+  }
+
+  // Write to two Command Registers of VCNL4040
+  mraa::Result writeCommandRegVCNL4040(const uint8_t command_code, const uint8_t low_data, const uint8_t high_data)
+  {
+    uint16_t data = ((uint16_t)low_data << 8) | high_data;
+
+    i2c_.address(VCNL4040_ADDR);
+    return i2c_.writeWordReg(command_code, data);
+  }
+
+  // Configure VCNL4040
+  void initVCNL4040()
+  {
+    // Set PS_CONF3 and PS_MS
+    uint8_t conf3 = 0x00;
+    // uint8_t ms = 0x00;  // IR LED current to 50mA
+    uint8_t ms = 0x01;  // IR LED current to 75mA
+    // uint8_t ms = 0x02;  // IR LED current to 100mA
+    // uint8_t ms = 0x06;  // IR LED current to 180mA
+    // uint8_t ms = 0x07;  // IR LED current to 200mA
+    writeCommandRegVCNL4040(PS_CONF3, conf3, ms);
+  }
+
+  void startProxSensor()
+  {
+    // Clear PS_SD to turn on proximity sensing
+    // uint8_t conf1 = 0x00;  // Clear PS_SD bit to begin reading
+    uint8_t conf1 = 0x0E;  // Integrate 8T, Clear PS_SD bit to begin reading
+    // uint8_t conf2 = 0x00;  // Clear PS to 12-bit
+    uint8_t conf2 = 0x08;  // Set PS to 16-bit
+    writeCommandRegVCNL4040(PS_CONF1, conf1, conf2);
+  }
+
+  void stopProxSensor()
+  {
+    // Set PS_SD to turn off proximity sensing
+    uint8_t conf1 = 0x01;  // Set PS_SD bit to stop reading
+    uint8_t conf2 = 0x00;
+    writeCommandRegVCNL4040(PS_CONF1, conf1, conf2);
+  }
+
+  bool init()
+  {
+    for (int sensor_no = 0; sensor_no < sensor_num_; sensor_no++)
+    {
+      setMultiplexerCh(MUX_ADDR, sensor_no);
+      initVCNL4040();
+    }
+
+    return true;
+  }
+
+  void getRawProximities(std::vector<uint16_t>* raw_proximities)
+  {
+    raw_proximities->clear();
+    for (int sensor_no = 0; sensor_no < sensor_num_; sensor_no++)
+    {
+      setMultiplexerCh(MUX_ADDR, sensor_no);
+      startProxSensor();
+      // Wait for proximity ready
+      ros::Duration(0.001).sleep();
+      raw_proximities->push_back(readCommandRegVCNL4040(PS_DATA_L));
+      stopProxSensor();
+    }
+  }
+
+  void getProximityArray(force_proximity_ros::ProximityArray* proximity_array)
+  {
+    std::vector<uint16_t> raw_proximities;
+    getRawProximities(&raw_proximities);
+    // Record time of reading sensor
+    proximity_array->header.stamp = ros::Time::now();
+
+    // Fill necessary data of proximity
+    proximity_array->proximities.clear();
+    force_proximity_ros::Proximity proximity;
+    for (int sensor_no = 0; sensor_no < sensor_num_; sensor_no++)
+    {
+      uint16_t raw = raw_proximities[sensor_no];
+      proximity.proximity = raw;
+      if (average_value_.size() == sensor_no)
+      {
+        // Init average value
+        average_value_.push_back(proximity.proximity);
+      }
+      proximity.average = average_value_[sensor_no];
+      proximity.fa2derivative = average_value_[sensor_no] - raw - fa2_[sensor_no];
+      fa2_[sensor_no] = average_value_[sensor_no] - raw;
+      proximity.fa2 = fa2_[sensor_no];
+      if (fa2_[sensor_no] < -sensitivity_)
+      {
+          proximity.mode = "T";
+      }
+      else if (fa2_[sensor_no] > sensitivity_)
+      {
+          proximity.mode = "R";
+      }
+      else
+      {
+          proximity.mode = "0";
+      }
+      average_value_[sensor_no] = ea_ * raw + (1 - ea_) * average_value_[sensor_no];
+      proximity_array->proximities.push_back(proximity);
+    }
+  }
+};  // end class ProximitySensorDriver
+
 class GripperLoop : public hardware_interface::RobotHW
 {
 private:
@@ -188,9 +364,12 @@ private:
   FlexSensorDriver flex_sen_;
   std::vector<std::string> flex_names_;
 
+  ProximitySensorDriver prox_sen_;
+
   // ROS publishers
   ros::Publisher pressure_pub_;
   std::map<std::string, ros::Publisher> flex_pub_;
+  ros::Publisher prox_pub_;
 
   // For multi-threaded spinning
   boost::shared_ptr<ros::AsyncSpinner> subscriber_spinner_;
@@ -202,6 +381,8 @@ public:
   {
     pres_sen_.init();
 
+    prox_sen_.init();
+
     // Publisher for pressure
     pressure_pub_ = nh_.advertise<std_msgs::Float64>("pressure", 1);
 
@@ -210,6 +391,9 @@ public:
     {
       flex_pub_[flex_names_[i]] = nh_.advertise<std_msgs::UInt16>("flex/" + flex_names_[i], 1);
     }
+
+    // Publisher for proximity
+    prox_pub_ = nh_.advertise<force_proximity_ros::ProximityArray>("proximity_array", 1);
 
     // Start spinning
     nh_.setCallbackQueue(&subscriber_queue_);
@@ -238,6 +422,11 @@ public:
       value.data = flex[i];
       flex_pub_[flex_names_[i]].publish(value);
     }
+
+    // Get and publish proximity
+    force_proximity_ros::ProximityArray proximity_array;
+    prox_sen_.getProximityArray(&proximity_array);
+    prox_pub_.publish(proximity_array);
   }
 
   void write()
