@@ -96,7 +96,7 @@ public:
     *temp_raw = ((*temp_raw) << 4) | (rx[6] >> 4);
   }
 
-  int32_t calibTemperature(int32_t temp_raw)
+  int32_t calibTemperature(const int32_t temp_raw)
   {
     int32_t var1, var2, T;
     var1 = ((((temp_raw >> 3) - ((int32_t)dig_T1_ << 1))) * ((int32_t)dig_T2_)) >> 11;
@@ -107,7 +107,7 @@ public:
     return (var1 + var2);
   }
 
-  uint32_t calibPressure(int32_t pres_raw, int32_t t_fine)
+  uint32_t calibPressure(const int32_t pres_raw, const int32_t t_fine)
   {
     int32_t var1, var2;
     var1 = (((int32_t)t_fine) >> 1) - (int32_t)64000;
@@ -147,7 +147,7 @@ class FlexSensorDriver
 {
 private:
   mraa::Spi spi_;
-  int sensor_num_;
+  const int sensor_num_;
 
 public:
   FlexSensorDriver(const int sensor_num = 2, const int spi_bus = 2, const int spi_cs = 1,
