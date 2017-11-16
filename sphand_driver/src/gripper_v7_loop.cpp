@@ -294,6 +294,7 @@ public:
     {
       setMultiplexerCh(MUX_ADDR, sensor_no);
       initVCNL4040();
+      startProxSensor();
     }
 
     return true;
@@ -305,11 +306,7 @@ public:
     for (int sensor_no = 0; sensor_no < sensor_num_; sensor_no++)
     {
       setMultiplexerCh(MUX_ADDR, sensor_no);
-      startProxSensor();
-      // Wait for proximity ready
-      ros::Duration(0.001).sleep();
       raw_proximities->push_back(readCommandRegVCNL4040(PS_DATA_L));
-      stopProxSensor();
     }
   }
 
