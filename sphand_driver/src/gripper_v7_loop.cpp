@@ -245,13 +245,13 @@ public:
   {
     i2c_.address(VCNL4040_ADDR);
     uint16_t rx = i2c_.readWordReg(command_code);
-    return ((rx & 0xFF) << 8) | ((rx >> 8) & 0xFF);
+    return rx;
   }
 
   // Write to two Command Registers of VCNL4040
   mraa::Result writeCommandRegVCNL4040(const uint8_t command_code, const uint8_t low_data, const uint8_t high_data)
   {
-    uint16_t data = ((uint16_t)low_data << 8) | high_data;
+    uint16_t data = ((uint16_t)high_data << 8) | low_data;
 
     i2c_.address(VCNL4040_ADDR);
     return i2c_.writeWordReg(command_code, data);
