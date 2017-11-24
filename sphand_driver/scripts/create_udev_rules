@@ -6,8 +6,6 @@ echo "to /etc/udev/rules.d and /usr/local/sbin"
 echo ""
 
 sudo cp `rospack find sphand_driver`/udev/80-dxhub.rules /etc/udev/rules.d
-sudo cp `rospack find sphand_driver`/udev/90-rosserial.rules /etc/udev/rules.d
-sudo cp `rospack find sphand_driver`/udev/unique-num /usr/local/sbin
 
 echo ""
 echo "Restarting udev"
