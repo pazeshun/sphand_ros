@@ -12,9 +12,9 @@ prismatic_joint_controller:
   is_multiturn: true
   motor:
     id: 1
-    init: 0
-    min: 0
-    max: 3300
+    init: 3300
+    min: 3300
+    max: 0
 vacuum_pad_tendon_controller:
   controller:
     package: dynamixel_controllers
@@ -38,9 +38,9 @@ finger_yaw_joint_controller:
   joint_torque_limit: 0.15
   motor:
     id: 2
-    init: 250
-    min: 250
-    max: 650
+    init: 650
+    min: 650
+    max: 250
 finger_tendon_controller:
   controller:
     package: dynamixel_controllers
@@ -52,6 +52,6 @@ finger_tendon_controller:
   ignored_errors: ['DXL_OVERLOAD_ERROR']
   motor:
     id: 3
-    init: 3140
-    min: 3140
-    max: 570
+    init: 800
+    min: 800
+    max: 3370
