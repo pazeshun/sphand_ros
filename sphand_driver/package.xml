@@ -20,6 +20,7 @@
   <build_depend>actionlib</build_depend>
   <build_depend>actionlib_msgs</build_depend>
   <build_depend>controller_manager</build_depend>
+  <build_depend>force_proximity_ros</build_depend>
   <build_depend>hardware_interface</build_depend>
   <build_depend>libmraa1</build_depend>
   <build_depend>libmraa-dev</build_depend>
@@ -34,6 +35,7 @@
   <run_depend>controller_manager</run_depend>
   <run_depend>dynamixel_controllers</run_depend>
   <run_depend>dynamixel_msgs</run_depend>
+  <run_depend>force_proximity_ros</run_depend>
   <run_depend>hardware_interface</run_depend>
   <run_depend>joint_state_controller</run_depend>
   <run_depend>libmraa1</run_depend>

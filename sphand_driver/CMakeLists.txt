@@ -5,6 +5,7 @@ find_package(catkin REQUIRED COMPONENTS
   actionlib
   actionlib_msgs
   controller_manager
+  force_proximity_ros
   hardware_interface
   message_generation
   roscpp
@@ -42,6 +43,7 @@ catkin_package(
   actionlib
   actionlib_msgs
   controller_manager
+  force_proximity_ros
   hardware_interface
   message_runtime
   roscpp
