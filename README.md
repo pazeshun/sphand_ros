@@ -15,7 +15,6 @@ Please do `sudo apt-get -y autoremove --purge 'linux-.*generic'` again after reb
 ### Install Astra Camera
 
 Please follow [jsk_recognition documentation](https://jsk-recognition.readthedocs.io/en/latest/install_astra_camera.html).
-
 ### Install C/C++ Library in libmraa
 
 ```bash
@@ -43,7 +42,7 @@ catkin build
 source ~/apc_ws/devel/setup.bash
 ```
 
-### Setup DXHUB
+### Setup I<sup>2</sup>C, SPI and DXHUB
 
 ```bash
 rosrun sphand_driver create_udev_rules

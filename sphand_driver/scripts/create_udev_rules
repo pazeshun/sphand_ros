@@ -5,6 +5,8 @@ echo "This script copies udev rules for grippers and their dependencies"
 echo "to /etc/udev/rules.d and /usr/local/sbin"
 echo ""
 
+sudo cp `rospack find sphand_driver`/udev/60-i2c.rules /etc/udev/rules.d
+sudo cp `rospack find sphand_driver`/udev/70-spi.rules /etc/udev/rules.d
 sudo cp `rospack find sphand_driver`/udev/80-dxhub.rules /etc/udev/rules.d
 
 echo ""

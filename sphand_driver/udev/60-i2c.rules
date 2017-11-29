@@ -1,0 +1,2 @@
+# Change permission of i2c-1
+KERNEL=="i2c-1", MODE="0666"
