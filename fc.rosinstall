@@ -1,8 +1,4 @@
 - git:
-    local-name: force_proximity_ros
-    uri: https://github.com/knorth55/FA-I-sensor.git
-    version: jsk_apc
-- git:
     local-name: sphand_ros
     uri: https://github.com/pazeshun/sphand_ros.git
     version: master
@@ -10,3 +6,8 @@
     local-name: dynamixel_motor
     uri: https://github.com/pazeshun/dynamixel_motor.git
     version: gripper-v6-devel
+# For robot model and force_proximity_ros
+- git:
+    local-name: JSK_APC_WS/jsk_apc
+    uri: https://github.com/start-jsk/jsk_apc.git
+    version: add-gripper-v7-model
