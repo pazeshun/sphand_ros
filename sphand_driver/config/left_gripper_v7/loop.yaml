@@ -3,22 +3,41 @@ actuator_names:
   - left_gripper_prismatic_joint_motor
   - left_gripper_vacuum_pad_tendon_winder
   - left_gripper_finger_yaw_joint_motor
-  - left_gripper_finger_tendon_winder
+  - left_gripper_finger_roll_joint_a_virtual_motor
+  - left_gripper_finger_roll_joint_b_virtual_motor
 joint_names:
   - left_gripper_prismatic_joint
   - left_gripper_vacuum_pad_joint
   - left_gripper_finger_yaw_joint
-  - left_gripper_finger_roll_joint
-controller_names:
-  - prismatic_joint_controller
-  - vacuum_pad_tendon_controller
-  - finger_yaw_joint_controller
-  - finger_tendon_controller
+  - left_gripper_finger_roll_joint_a
+  - left_gripper_finger_roll_joint_b
 mechanical_reduction:
   - 35.71428571  # 1 / (0.8 * 35 * 0.001)
   - 1.432291667
   - 1.5625  # ~ 36 / 24
-  - 1.5
+  - 1.0
+  - 1.0
+virtual_actuators:
+  - virtual:
+      - left_gripper_finger_roll_joint_a_virtual_motor
+      - left_gripper_finger_roll_joint_b_virtual_motor
+    real:
+      - left_gripper_finger_tendon_winder
+    # Add following sections when we have to implement other relationship
+    # actuator_command_conversion:
+    #   method: Addition
+    # actuator_state_conversion:
+    #   method: Division
+    #   apply_joint_limit: true
+controllers:
+  - controller: prismatic_joint_controller
+    actuator: left_gripper_prismatic_joint_motor
+  - controller: vacuum_pad_tendon_controller
+    actuator: left_gripper_vacuum_pad_tendon_winder
+  - controller: finger_yaw_joint_controller
+    actuator: left_gripper_finger_yaw_joint_motor
+  - controller: finger_tendon_controller
+    actuator: left_gripper_finger_tendon_winder
 
 # Flex sensors
 flex_names:
