@@ -1,16 +1,27 @@
 #include "mraa.hpp"
 
-#include <vector>
 #include <map>
+#include <vector>
 
 #include <ros/ros.h>
 #include <ros/callback_queue.h>
-#include <std_msgs/UInt16.h>
-#include <std_msgs/Float64.h>
-#include <force_proximity_ros/ProximityArray.h>
-#include <force_proximity_ros/Proximity.h>
-#include <hardware_interface/robot_hw.h>
+
 #include <controller_manager/controller_manager.h>
+#include <hardware_interface/joint_command_interface.h>
+#include <hardware_interface/joint_state_interface.h>
+#include <hardware_interface/robot_hw.h>
+#include <joint_limits_interface/joint_limits_interface.h>
+#include <transmission_interface/simple_transmission.h>
+#include <transmission_interface/transmission_interface.h>
+
+#include <baxter_core_msgs/AssemblyState.h>
+#include <dynamixel_controllers/TorqueEnable.h>
+#include <dynamixel_msgs/JointState.h>
+#include <force_proximity_ros/Proximity.h>
+#include <force_proximity_ros/ProximityArray.h>
+#include <std_msgs/Bool.h>
+#include <std_msgs/Float64.h>
+#include <std_msgs/UInt16.h>
 
 class PressureSensorDriver
 {
@@ -353,16 +364,61 @@ class GripperLoop : public hardware_interface::RobotHW
 private:
   ros::NodeHandle nh_;
 
+  // Hardware resource interface
+  hardware_interface::JointStateInterface jnt_state_interface_;
+  hardware_interface::PositionJointInterface pos_jnt_interface_;
+
+  // Actuator raw data
+  const std::vector<std::string> actr_names_;
+  std::map<std::string, double> actr_curr_pos_;
+  std::map<std::string, double> actr_curr_vel_;
+  std::map<std::string, double> actr_curr_eff_;
+  std::map<std::string, double> actr_cmd_pos_;
+
+  // Joint raw data
+  const std::vector<std::string> jnt_names_;
+  std::map<std::string, double> jnt_curr_pos_;
+  std::map<std::string, double> jnt_curr_vel_;
+  std::map<std::string, double> jnt_curr_eff_;
+  std::map<std::string, double> jnt_cmd_pos_;
+
+  // For transmission between actuator and joint
+  transmission_interface::ActuatorToJointStateInterface actr_to_jnt_state_;
+  transmission_interface::JointToActuatorPositionInterface jnt_to_actr_pos_;
+  std::vector<boost::shared_ptr<transmission_interface::SimpleTransmission> > trans_;
+  std::map<std::string, transmission_interface::ActuatorData> actr_curr_data_;
+  std::map<std::string, transmission_interface::ActuatorData> actr_cmd_data_;
+  std::map<std::string, transmission_interface::JointData> jnt_curr_data_;
+  std::map<std::string, transmission_interface::JointData> jnt_cmd_data_;
+
+  // Actuator interface
+  const std::vector<std::map<std::string, std::string> > controllers;
+  std::map<std::string, ros::Publisher> actr_cmd_pub_;
+  std::map<std::string, ros::Subscriber> actr_state_sub_;
+  std::map<std::string, dynamixel_msgs::JointState> received_actr_states_;
+
+  // E-stop interface
+  ros::Subscriber robot_state_sub_;
+  bool is_gripper_enabled_;
+  ros::Publisher vacuum_pub_;
+  std::map<std::string, ros::ServiceClient> torque_enable_client_;
+
+  // Pressure sensor
   PressureSensorDriver pres_sen_;
-
-  FlexSensorDriver flex_sen_;
-  std::vector<std::string> flex_names_;
-
-  ProximitySensorDriver prox_sen_;
-
-  // ROS publishers
   ros::Publisher pressure_pub_;
+
+  // Flex sensor
+  std::vector<std::string> flex_names_;
+  FlexSensorDriver flex_sen_;
+  std::vector<uint16_t> received_flex_;
   std::map<std::string, ros::Publisher> flex_pub_;
+  const std::vector<int> flex_thre_;
+  std::vector<bool> is_flexion_;
+  std::vector<int> flex_dec_cnt_;
+  const std::vector<double> wind_offset_flex_;
+
+  // Proximity sensor
+  ProximitySensorDriver prox_sen_;
   ros::Publisher prox_pub_;
 
   // For multi-threaded spinning
@@ -370,8 +426,19 @@ private:
   ros::CallbackQueue subscriber_queue_;
 
 public:
-  GripperLoop(const std::vector<std::string>& flex_names)
-    : flex_names_(flex_names), flex_sen_(flex_names.size())
+  GripperLoop(const std::vector<std::string>& actr_names, const std::vector<std::string>& jnt_names,
+              const std::vector<std::map<std::string, std::string> >& controllers, const std::vector<double>& reducers,
+              const std::vector<std::string>& flex_names, const std::vector<int>& flex_thre,
+              const std::vector<double>& wind_offset_flex, const int prox_num)
+    : actr_names_(actr_names)
+    , jnt_names_(jnt_names)
+    , controllers_(controllers)
+    , flex_names_(flex_names)
+    , flex_sen_(flex_names.size())
+    , flex_thre_(flex_thre)
+    , wind_offset_flex_(wind_offset_flex)
+    , prox_sen_(prox_num)
+    , is_gripper_enabled_(true)
   {
     pres_sen_.init();
 
@@ -408,8 +475,7 @@ public:
     pressure_pub_.publish(pressure);
 
     // Get and publish flex
-    std::vector<uint16_t> flex;
-    flex_sen_.getFlex(&flex);
+    flex_sen_.getFlex(&received_flex_);
     for (int i = 0; i < flex_names_.size(); i++)
     {
       std_msgs::UInt16 value;
@@ -432,15 +498,27 @@ int main(int argc, char** argv)
 {
   ros::init(argc, argv, "gripper_v7_loop_node");
 
+  std::vector<std::string> actr_names;
+  std::vector<std::string> jnt_names;
+  std::vector<std::map<std::string, std::string> > controllers;
+  std::vector<double> reducers;
+  int rate_hz;
   std::vector<std::string> flex_names;
+  std::vector<int> flex_thre;
+  std::vector<double> wind_offset_flex;
+  int prox_num;
 
-  if (!(ros::param::get("~flex_names", flex_names)))
+  if (!(ros::param::get("~actuator_names", actr_names) && ros::param::get("~joint_names", jnt_names) &&
+        ros::param::get("~controllers", controllers) && ros::param::get("~mechanical_reduction", reducers) &&
+        ros::param::get("~control_rate", rate_hz) && ros::param::get("~flex_names", flex_names) &&
+        ros::param::get("~flex_thresholds", flex_thre) && ros::param::get("~wind_offset_flex", wind_offset_flex) &&
+        ros::param::get("~proximity_sensor_num", prox_num)))
   {
     ROS_ERROR("Couldn't get necessary parameters");
     return 0;
   }
 
-  GripperLoop gripper(flex_names);
+  GripperLoop gripper(actr_names, jnt_names, controllers, reducers, flex_names, flex_thre, wind_offset_flex, prox_num);
   controller_manager::ControllerManager cm(&gripper);
 
   // For non-realtime spinner thread
@@ -448,18 +526,22 @@ int main(int argc, char** argv)
   spinner.start();
 
   // Control loop
-  ros::Rate rate(100);
+  ros::Rate rate(rate_hz);
   ros::Time prev_time = ros::Time::now();
+  bool prev_gripper_enabled = true;
 
   while (ros::ok())
   {
     const ros::Time now = ros::Time::now();
     const ros::Duration elapsed_time = now - prev_time;
+    const bool gripper_enabled = gripper.isGripperEnabled();
 
     gripper.read();
-    cm.update(now, elapsed_time);
+    // When E-stop is released, reset joint trajectory controllers to keep current joint position
+    cm.update(now, elapsed_time, !prev_gripper_enabled && gripper_enabled);
     gripper.write();
     prev_time = now;
+    prev_gripper_enabled = gripper_enabled;
 
     rate.sleep();
   }
