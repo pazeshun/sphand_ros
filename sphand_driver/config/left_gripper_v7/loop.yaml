@@ -30,14 +30,10 @@ virtual_actuators:
     #   method: Division
     #   apply_joint_limit: true
 controllers:
-  - controller: prismatic_joint_controller
-    actuator: left_gripper_prismatic_joint_motor
-  - controller: vacuum_pad_tendon_controller
-    actuator: left_gripper_vacuum_pad_tendon_winder
-  - controller: finger_yaw_joint_controller
-    actuator: left_gripper_finger_yaw_joint_motor
-  - controller: finger_tendon_controller
-    actuator: left_gripper_finger_tendon_winder
+  left_gripper_prismatic_joint_motor: prismatic_joint_controller
+  left_gripper_vacuum_pad_tendon_winder: vacuum_pad_tendon_controller
+  left_gripper_finger_yaw_joint_motor: finger_yaw_joint_controller
+  left_gripper_finger_tendon_winder: finger_tendon_controller
 
 # Flex sensors
 flex_names:

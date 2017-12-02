@@ -370,10 +370,12 @@ private:
 
   // Actuator raw data
   const std::vector<std::string> actr_names_;
+  std::vector<std::string> real_actrs_;
   std::map<std::string, double> actr_curr_pos_;
   std::map<std::string, double> actr_curr_vel_;
   std::map<std::string, double> actr_curr_eff_;
   std::map<std::string, double> actr_cmd_pos_;
+  std::map<std::string, double> virtual_actr_limits_;
 
   // Joint raw data
   const std::vector<std::string> jnt_names_;
@@ -383,6 +385,7 @@ private:
   std::map<std::string, double> jnt_cmd_pos_;
 
   // For transmission between actuator and joint
+  const std::vector<double> reducers_;
   transmission_interface::ActuatorToJointStateInterface actr_to_jnt_state_;
   transmission_interface::JointToActuatorPositionInterface jnt_to_actr_pos_;
   std::vector<boost::shared_ptr<transmission_interface::SimpleTransmission> > trans_;
@@ -391,8 +394,11 @@ private:
   std::map<std::string, transmission_interface::JointData> jnt_curr_data_;
   std::map<std::string, transmission_interface::JointData> jnt_cmd_data_;
 
+  // For underactuated mechanism
+  std::vector<std::map<std::string, std::vector<std::string> > > virtual_actrs_;
+
   // Actuator interface
-  const std::vector<std::map<std::string, std::string> > controllers;
+  const std::map<std::string, std::string> controllers;
   std::map<std::string, ros::Publisher> actr_cmd_pub_;
   std::map<std::string, ros::Subscriber> actr_state_sub_;
   std::map<std::string, dynamixel_msgs::JointState> received_actr_states_;
@@ -413,8 +419,6 @@ private:
   std::vector<uint16_t> received_flex_;
   std::map<std::string, ros::Publisher> flex_pub_;
   const std::vector<int> flex_thre_;
-  std::vector<bool> is_flexion_;
-  std::vector<int> flex_dec_cnt_;
   const std::vector<double> wind_offset_flex_;
 
   // Proximity sensor
@@ -427,12 +431,13 @@ private:
 
 public:
   GripperLoop(const std::vector<std::string>& actr_names, const std::vector<std::string>& jnt_names,
-              const std::vector<std::map<std::string, std::string> >& controllers, const std::vector<double>& reducers,
+              const std::map<std::string, std::string>& controllers, const std::vector<double>& reducers,
               const std::vector<std::string>& flex_names, const std::vector<int>& flex_thre,
               const std::vector<double>& wind_offset_flex, const int prox_num)
     : actr_names_(actr_names)
     , jnt_names_(jnt_names)
     , controllers_(controllers)
+    , reducers_(reducers)
     , flex_names_(flex_names)
     , flex_sen_(flex_names.size())
     , flex_thre_(flex_thre)
@@ -440,21 +445,105 @@ public:
     , prox_sen_(prox_num)
     , is_gripper_enabled_(true)
   {
+    // Initialize transmission and hardware interface
+    for (int i = 0; i < jnt_names_.size(); i++)
+    {
+      std::string& actr = actr_names_[i];
+      std::string& jnt = jnt_names_[i];
+
+      // Get transmission
+      boost::shared_ptr<transmission_interface::SimpleTransmission> t_ptr(
+          new transmission_interface::SimpleTransmission(reducers[i]));
+      trans_.push_back(t_ptr);
+
+      // Initialize and wrap raw current data
+      actr_curr_data_[actr].position.push_back(&actr_curr_pos_[actr]);
+      actr_curr_data_[actr].velocity.push_back(&actr_curr_vel_[actr]);
+      actr_curr_data_[actr].effort.push_back(&actr_curr_eff_[actr]);
+      jnt_curr_data_[jnt].position.push_back(&jnt_curr_pos_[jnt]);
+      jnt_curr_data_[jnt].velocity.push_back(&jnt_curr_vel_[jnt]);
+      jnt_curr_data_[jnt].effort.push_back(&jnt_curr_eff_[jnt]);
+
+      // Initialize and wrap raw command data
+      actr_cmd_data_[actr].position.push_back(&actr_cmd_pos_[actr]);
+      jnt_cmd_data_[jnt].position.push_back(&jnt_cmd_pos_[jnt]);
+
+      // Register transmissions to each interface
+      actr_to_jnt_state_.registerHandle(transmission_interface::ActuatorToJointStateHandle(
+          actr + "_trans", trans_[i].get(), actr_curr_data_[actr], jnt_curr_data_[jnt]));
+      jnt_to_actr_pos_.registerHandle(transmission_interface::JointToActuatorPositionHandle(
+          jnt + "_trans", trans_[i].get(), actr_cmd_data_[actr], jnt_cmd_data_[jnt]));
+
+      // Connect and register the joint state handle
+      hardware_interface::JointStateHandle state_handle(jnt, &jnt_curr_pos_[jnt], &jnt_curr_vel_[jnt],
+                                                        &jnt_curr_eff_[jnt]);
+      jnt_state_interface_.registerHandle(state_handle);
+
+      // Connect and register the joint position handle
+      hardware_interface::JointHandle pos_handle(jnt_state_interface_.getHandle(jnt), &jnt_cmd_pos_[jnt]);
+      pos_jnt_interface_.registerHandle(pos_handle);
+    }
+    // Register interfaces
+    registerInterface(&jnt_state_interface_);
+    registerInterface(&pos_jnt_interface_);
+
+    // Get real actuators
+    ros::param::get("~virtual_actuators", virtual_actrs_);
+    real_actrs_ = actr_names_;
+    std::vector<std::string> virtuals;
+    std::vector<std::string> reals;
+    for (int i = 0; i < virtual_actrs_.size(); i++)
+    {
+      // List all virtual actuators
+      std::vector<std::string>& v = virtual_actrs_[i]["virtual"];
+      virtuals.insert(virtuals.end(), v.begin(), v.end());
+      v = virtual_actrs_[i]["real"];
+      reals.insert(reals.end(), v.begin(), v.end());
+    }
+    for (int i = 0; i < virtuals.size(); i++)
+    {
+      // Remove all virtual actuators
+      std::vector<std::string>::iterator v_itr = std::find(real_actrs_.begin(), real_actrs_.end(), virtuals[i]);
+      if (v_itr != real_actrs_.end())
+      {
+        real_actrs_.erase(v_itr);
+      }
+    }
+    real_actrs_.insert(real_actrs_.end(), reals.begin(), reals.end());
+
+    // Initialize actuator commander and reader
+    for (int i = 0; i < real_actrs_.size(); i++)
+    {
+      std::string& actr = real_actrs_[i];
+      actr_cmd_pub_[actr] = nh_.advertise<std_msgs::Float64>("dxl/" + controllers_[actr] + "/command", 5);
+      actr_state_sub_[actr] =
+          nh_.subscribe("dxl/" + controllers_[actr] + "/state", 1, &GripperLoop::actrStateCallback, this);
+    }
+
+    // Initialize E-stop interface
+    robot_state_sub_ = nh_.subscribe("/robot/state", 1, &GripperLoop::robotStateCallback, this);
+    vacuum_pub_ = nh_.advertise<std_msgs::Bool>("vacuum", 10);
+    for (std::map<std::string, std::string>::const_iterator itr = controllers_.begin(); itr != controllers_.end();
+         ++itr)
+    {
+      torque_enable_client_[itr->second] =
+          nh_.serviceClient<dynamixel_controllers::TorqueEnable>("dxl/" + itr->second + "/torque_enable");
+    }
+
+    // Initialize pressure sensor
     pres_sen_.init();
-
-    prox_sen_.init();
-
-    // Publisher for pressure
     pressure_pub_ = nh_.advertise<std_msgs::Float64>("pressure", 1);
 
-    // Publisher for flex
+    // Initialize proximity sensor
+    prox_sen_.init();
+    prox_pub_ = nh_.advertise<force_proximity_ros::ProximityArray>("proximity_array", 1);
+
+    // Initialize flex sensor
+    received_flex_ = std::vector<int>(flex_names_.size(), 0);
     for (int i = 0; i < flex_names_.size(); i++)
     {
       flex_pub_[flex_names_[i]] = nh_.advertise<std_msgs::UInt16>("flex/" + flex_names_[i], 1);
     }
-
-    // Publisher for proximity
-    prox_pub_ = nh_.advertise<force_proximity_ros::ProximityArray>("proximity_array", 1);
 
     // Start spinning
     nh_.setCallbackQueue(&subscriber_queue_);
@@ -487,10 +576,61 @@ public:
     force_proximity_ros::ProximityArray proximity_array;
     prox_sen_.getProximityArray(&proximity_array);
     prox_pub_.publish(proximity_array);
+
+    // Update actuator current state
+    for (int i = 0; i < actr_names_.size(); i++)
+    {
+      std::string& actr = actr_names_[i];
+      actr_curr_pos_[actr] = received_actr_states_[actr].current_pos;
+      actr_curr_vel_[actr] = received_actr_states_[actr].velocity;
+
+      // If fingers flex, add offset angle to finger tendon winder
+      if (actr.find("finger_tendon_winder") != std::string::npos)
+      {
+        for (int j = 0; j < flex_names_.size(); j++)
+        {
+          if (received_flex_[j] > flex_thre_[j])
+          {
+            actr_curr_pos_[actr] -= wind_offset_flex_[j];
+          }
+        }
+      }
+    }
+
+    // Manage underactuated mechanism
+    for (int i = 0; i < virtual_actrs_.size(); i++)
+    {
+      std::string& real_actr = virtual_actrs_[i]["real"][0];
+      int virtual_actr_num = virtual_actrs_[i]["virtual"].size();
+      double each_pos = actr_curr_pos_[virtual_actrs_[i]["real"][0]] / virtual_actrs_[i]["virtual"].size();
+      double each_vel = actr_curr_vel_[virtual_actrs_[i]["real"][0]] / virtual_actrs_[i]["virtual"].size();
+      for (int j = 0; j < virtual_actrs_[i]["virtual"].size(); j++)
+      {
+
+      }
+    }
+
+    // Propagate current actuator state to joints
+    actr_to_jnt_state_.propagate();
   }
 
   void write()
   {
+  }
+
+  bool isGripperEnabled()
+  {
+    return is_gripper_enabled_;
+  }
+
+  void actrStateCallback(const dynamixel_msgs::JointStateConstPtr& dxl_actr_state)
+  {
+    received_actr_states_[dxl_actr_state->name] = *dxl_actr_state;
+  }
+
+  void robotStateCallback(const baxter_core_msgs::AssemblyStateConstPtr& state)
+  {
+    is_gripper_enabled_ = state->enabled;
   }
 };  // end class GripperLoop
 
@@ -500,7 +640,7 @@ int main(int argc, char** argv)
 
   std::vector<std::string> actr_names;
   std::vector<std::string> jnt_names;
-  std::vector<std::map<std::string, std::string> > controllers;
+  std::map<std::string, std::string> controllers;
   std::vector<double> reducers;
   int rate_hz;
   std::vector<std::string> flex_names;
