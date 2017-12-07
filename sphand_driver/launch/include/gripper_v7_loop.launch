@@ -14,23 +14,20 @@
     <!-- Start the loop node -->
     <node name="loop" pkg="sphand_driver" type="gripper_v7_loop_node" output="screen">
       <rosparam file="$(find sphand_driver)/config/left_gripper_v7/loop.yaml" command="load"/>
+      <remap from="joint_states" to="/robot/joint_states"/>
     </node>
 
     <!-- Start the joint state controller -->
-    <!--
     <rosparam file="$(find sphand_driver)/config/left_gripper_v7/joint_state_controller.yaml" command="load"/>
     <node name="joint_state_controller_spawner" pkg="controller_manager" type="spawner" respawn="false" output="screen"
           args="joint_state_controller">
     </node>
-    -->
 
     <!-- Start the joint trajectory controller -->
-    <!--
     <rosparam file="$(find sphand_driver)/config/left_gripper_v7/joint_trajectory_controller.yaml" command="load" unless="$(arg gazebo)" />
     <node name="joint_trajectory_controller_spawner" pkg="controller_manager" type="spawner" respawn="false" output="screen" unless="$(arg gazebo)"
           args="vacuum_gripper
                 hand" />
-    -->
   </group>
 
   <!-- right gripper -->

@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   roscpp
   std_msgs
+  transmission_interface
 )
 
 catkin_python_setup()
@@ -48,6 +49,7 @@ catkin_package(
   message_runtime
   roscpp
   std_msgs
+  transmission_interface
 )
 
 ###########

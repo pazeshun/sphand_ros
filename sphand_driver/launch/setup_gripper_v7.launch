@@ -1,6 +1,13 @@
 <launch>
 
   <arg name="left_gripper" default="true" />
+  <arg name="gripper_only" default="true" />
+
+  <!-- For gripper only -->
+  <param name="/robot_description"
+         command="$(find xacro)/xacro.py $(find jsk_arc2017_baxter)/robots/baxterlgv7.xacro"
+         if="$(arg gripper_only)"/>
+
 
   <!-- adjust gravity compensation for gripper -->
   <node pkg="rostopic" type="rostopic" name="adjust_compensation_left"
@@ -14,9 +21,11 @@
         unless="$(arg left_gripper)"/>
 
   <!-- camera -->
+  <!--
   <include file="$(find sphand_driver)/launch/include/astra.launch">
     <arg name="left_gripper" value="$(arg left_gripper)" />
   </include>
+  -->
 
   <!-- motors and sensors -->
   <!--

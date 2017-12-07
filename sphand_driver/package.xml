@@ -28,6 +28,7 @@
   <build_depend>mraa-tools</build_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>std_msgs</build_depend>
+  <build_depend>transmission_interface</build_depend>
 
   <run_depend>actionlib</run_depend>
   <run_depend>actionlib_msgs</run_depend>
@@ -38,6 +39,7 @@
   <run_depend>force_proximity_ros</run_depend>
   <run_depend>hardware_interface</run_depend>
   <run_depend>joint_state_controller</run_depend>
+  <run_depend>jsk_arc2017_baxter</run_depend>
   <run_depend>libmraa1</run_depend>
   <run_depend>libmraa-dev</run_depend>
   <run_depend>message_runtime</run_depend>
@@ -46,6 +48,7 @@
   <run_depend>roscpp</run_depend>
   <run_depend>rospy</run_depend>
   <run_depend>std_msgs</run_depend>
+  <run_depend>transmission_interface</run_depend>
 
   <export>
   </export>

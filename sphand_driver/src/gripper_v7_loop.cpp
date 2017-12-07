@@ -1,5 +1,7 @@
 #include "mraa.hpp"
 
+#include <boost/scoped_ptr.hpp>
+#include <boost/foreach.hpp>
 #include <vector>
 #include <map>
 
@@ -10,6 +12,7 @@
 #include <force_proximity_ros/ProximityArray.h>
 #include <force_proximity_ros/Proximity.h>
 #include <hardware_interface/robot_hw.h>
+#include <transmission_interface/transmission_interface_loader.h>
 #include <controller_manager/controller_manager.h>
 
 class PressureSensorDriver
@@ -353,6 +356,19 @@ class GripperLoop : public hardware_interface::RobotHW
 private:
   ros::NodeHandle nh_;
 
+  transmission_interface::RobotTransmissions robot_transmissions_;
+  boost::scoped_ptr<transmission_interface::TransmissionInterfaceLoader> transmission_loader_;
+
+  hardware_interface::ActuatorStateInterface actr_state_interface_;
+  hardware_interface::PositionActuatorInterface pos_actr_interface_;
+
+  const std::vector<std::string> actr_names_;
+  const std::vector<std::string> controller_names_;
+  std::vector<double> actr_curr_pos_;
+  std::vector<double> actr_curr_vel_;
+  std::vector<double> actr_curr_eff_;
+  std::vector<double> actr_cmd_pos_;
+
   PressureSensorDriver pres_sen_;
 
   FlexSensorDriver flex_sen_;
@@ -370,9 +386,91 @@ private:
   ros::CallbackQueue subscriber_queue_;
 
 public:
-  GripperLoop(const std::vector<std::string>& flex_names, const int prox_num)
-    : flex_names_(flex_names), flex_sen_(flex_names.size()), prox_sen_(prox_num)
+  GripperLoop(const std::vector<std::string>& actr_names, const std::vector<std::string> controller_names,
+              const std::vector<std::string>& flex_names, const int prox_num)
+    : actr_names_(actr_names)
+    , controller_names_(controller_names)
+    , flex_names_(flex_names)
+    , flex_sen_(flex_names.size())
+    , prox_sen_(prox_num)
   {
+    actr_curr_pos_.resize(actr_names_.size(), 0);
+    actr_curr_vel_.resize(actr_names_.size(), 0);
+    actr_curr_eff_.resize(actr_names_.size(), 0);
+    actr_cmd_pos_.resize(actr_names_.size(), 0);
+    for (int i = 0; i < actr_names_.size(); i++)
+    {
+      hardware_interface::ActuatorStateHandle state_handle(actr_names_[i], &actr_curr_pos_[i], &actr_curr_vel_[i], &actr_curr_eff_[i]);
+      actr_state_interface_.registerHandle(state_handle);
+
+      hardware_interface::ActuatorHandle position_handle(state_handle, &actr_cmd_pos_[i]);
+      pos_actr_interface_.registerHandle(position_handle);
+    }
+    registerInterface(&actr_state_interface_);
+    registerInterface(&pos_actr_interface_);
+
+    try
+    {
+      transmission_loader_.reset(new transmission_interface::TransmissionInterfaceLoader(this, &robot_transmissions_));
+    }
+    catch (const std::invalid_argument& ex)
+    {
+      ROS_ERROR_STREAM("Failed to create transmission interface loader. " << ex.what());
+      return;
+    }
+    catch (const pluginlib::LibraryLoadException& ex)
+    {
+      ROS_ERROR_STREAM("Failed to create transmission interface loader. " << ex.what());
+      return;
+    }
+    catch (...)
+    {
+      ROS_ERROR_STREAM("Failed to create transmission interface loader. ");
+      return;
+    }
+
+    std::string urdf_string;
+    ros::param::get("/robot_description", urdf_string);
+    while (urdf_string.empty() && ros::ok())
+    {
+      ROS_INFO_STREAM_ONCE("Waiting for robot_description");
+      ros::param::get("/robot_description", urdf_string);
+      ros::Duration(0.1).sleep();
+    }
+
+    transmission_interface::TransmissionParser parser;
+    std::vector<transmission_interface::TransmissionInfo> infos;
+    if (!parser.parse(urdf_string, infos))
+    {
+      ROS_ERROR("Error parsing URDF");
+      return;
+    }
+
+    BOOST_FOREACH (const transmission_interface::TransmissionInfo& info, infos)
+    {
+      if (std::find(actr_names_.begin(), actr_names_.end(), info.actuators_[0].name_) != actr_names_.end())
+      {
+        BOOST_FOREACH (const transmission_interface::ActuatorInfo& actuator, info.actuators_)
+        {
+          if (std::find(actr_names_.begin(), actr_names_.end(), actuator.name_) == actr_names_.end())
+          {
+            ROS_ERROR_STREAM("Error loading transmission: " << info.name_);
+            ROS_ERROR_STREAM("Cannot find " << actuator.name_ << " in target actuator list");
+            return;
+          }
+        }
+        if (!transmission_loader_->load(info))
+        {
+          ROS_ERROR_STREAM("Error loading transmission: " << info.name_);
+          return;
+        }
+        else
+        {
+          ROS_INFO_STREAM("Loaded transmission: " << info.name_);
+        }
+      }
+    }
+
     pres_sen_.init();
 
     prox_sen_.init();
@@ -421,10 +519,19 @@ public:
     force_proximity_ros::ProximityArray proximity_array;
     prox_sen_.getProximityArray(&proximity_array);
     prox_pub_.publish(proximity_array);
+
+    if (robot_transmissions_.get<transmission_interface::ActuatorToJointStateInterface>())
+    {
+      robot_transmissions_.get<transmission_interface::ActuatorToJointStateInterface>()->propagate();
+    }
   }
 
   void write()
   {
+    if(robot_transmissions_.get<transmission_interface::JointToActuatorPositionInterface>())
+    {
+      robot_transmissions_.get<transmission_interface::JointToActuatorPositionInterface>()->propagate();
+    }
   }
 };  // end class GripperLoop
 
@@ -432,18 +539,21 @@ int main(int argc, char** argv)
 {
   ros::init(argc, argv, "gripper_v7_loop_node");
 
+  std::vector<std::string> actr_names;
+  std::vector<std::string> controller_names;
   std::vector<std::string> flex_names;
   int prox_num;
   int rate_hz;
 
-  if (!(ros::param::get("~flex_names", flex_names) && ros::param::get("~proximity_sensor_num", prox_num) &&
+  if (!(ros::param::get("~actuator_names", actr_names) && ros::param::get("~controller_names", controller_names) &&
+        ros::param::get("~flex_names", flex_names) && ros::param::get("~proximity_sensor_num", prox_num) &&
         ros::param::get("~control_rate", rate_hz)))
   {
     ROS_ERROR("Couldn't get necessary parameters");
     return 0;
   }
 
-  GripperLoop gripper(flex_names, prox_num);
+  GripperLoop gripper(actr_names, controller_names, flex_names, prox_num);
   controller_manager::ControllerManager cm(&gripper);
 
   // For non-realtime spinner thread
