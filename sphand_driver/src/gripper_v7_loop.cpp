@@ -370,8 +370,8 @@ private:
   ros::CallbackQueue subscriber_queue_;
 
 public:
-  GripperLoop(const std::vector<std::string>& flex_names)
-    : flex_names_(flex_names), flex_sen_(flex_names.size())
+  GripperLoop(const std::vector<std::string>& flex_names, const int prox_num)
+    : flex_names_(flex_names), flex_sen_(flex_names.size()), prox_sen_(prox_num)
   {
     pres_sen_.init();
 
@@ -433,14 +433,17 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "gripper_v7_loop_node");
 
   std::vector<std::string> flex_names;
+  int prox_num;
+  int rate_hz;
 
-  if (!(ros::param::get("~flex_names", flex_names)))
+  if (!(ros::param::get("~flex_names", flex_names) && ros::param::get("~proximity_sensor_num", prox_num) &&
+        ros::param::get("~control_rate", rate_hz)))
   {
     ROS_ERROR("Couldn't get necessary parameters");
     return 0;
   }
 
-  GripperLoop gripper(flex_names);
+  GripperLoop gripper(flex_names, prox_num);
   controller_manager::ControllerManager cm(&gripper);
 
   // For non-realtime spinner thread
@@ -448,7 +451,7 @@ int main(int argc, char** argv)
   spinner.start();
 
   // Control loop
-  ros::Rate rate(100);
+  ros::Rate rate(rate_hz);
   ros::Time prev_time = ros::Time::now();
 
   while (ros::ok())
