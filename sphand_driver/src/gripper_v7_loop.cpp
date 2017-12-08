@@ -1,19 +1,26 @@
+// GPIO
 #include "mraa.hpp"
 
-#include <boost/scoped_ptr.hpp>
+// C++
 #include <boost/foreach.hpp>
-#include <vector>
+#include <boost/scoped_ptr.hpp>
 #include <map>
+#include <vector>
 
+// ROS base
 #include <ros/ros.h>
 #include <ros/callback_queue.h>
-#include <std_msgs/UInt16.h>
-#include <std_msgs/Float64.h>
-#include <force_proximity_ros/ProximityArray.h>
-#include <force_proximity_ros/Proximity.h>
+
+// ros_control
+#include <controller_manager/controller_manager.h>
 #include <hardware_interface/robot_hw.h>
 #include <transmission_interface/transmission_interface_loader.h>
-#include <controller_manager/controller_manager.h>
+
+// ROS msg
+#include <force_proximity_ros/Proximity.h>
+#include <force_proximity_ros/ProximityArray.h>
+#include <std_msgs/Float64.h>
+#include <std_msgs/UInt16.h>
 
 class PressureSensorDriver
 {
@@ -356,29 +363,35 @@ class GripperLoop : public hardware_interface::RobotHW
 private:
   ros::NodeHandle nh_;
 
+  // Transmission loader
   transmission_interface::RobotTransmissions robot_transmissions_;
   boost::scoped_ptr<transmission_interface::TransmissionInterfaceLoader> transmission_loader_;
 
+  // Actuator interface to transmission loader
   hardware_interface::ActuatorStateInterface actr_state_interface_;
   hardware_interface::PositionActuatorInterface pos_actr_interface_;
 
+  // Actuator raw data
   const std::vector<std::string> actr_names_;
-  const std::vector<std::string> controller_names_;
   std::vector<double> actr_curr_pos_;
   std::vector<double> actr_curr_vel_;
   std::vector<double> actr_curr_eff_;
   std::vector<double> actr_cmd_pos_;
 
+  // Actuator interface to other nodes
+  const std::vector<std::string> controller_names_;
+
+  // Pressure sensor
   PressureSensorDriver pres_sen_;
-
-  FlexSensorDriver flex_sen_;
-  std::vector<std::string> flex_names_;
-
-  ProximitySensorDriver prox_sen_;
-
-  // ROS publishers
   ros::Publisher pressure_pub_;
+
+  // Flex sensor
+  std::vector<std::string> flex_names_;
+  FlexSensorDriver flex_sen_;
   std::map<std::string, ros::Publisher> flex_pub_;
+
+  // Proximity sensor
+  ProximitySensorDriver prox_sen_;
   ros::Publisher prox_pub_;
 
   // For multi-threaded spinning
@@ -394,6 +407,7 @@ public:
     , flex_sen_(flex_names.size())
     , prox_sen_(prox_num)
   {
+    // Register actuator interfaces
     actr_curr_pos_.resize(actr_names_.size(), 0);
     actr_curr_vel_.resize(actr_names_.size(), 0);
     actr_curr_eff_.resize(actr_names_.size(), 0);
@@ -409,6 +423,7 @@ public:
     registerInterface(&actr_state_interface_);
     registerInterface(&pos_actr_interface_);
 
+    // Initialize transmission loader
     try
     {
       transmission_loader_.reset(new transmission_interface::TransmissionInterfaceLoader(this, &robot_transmissions_));
@@ -429,6 +444,7 @@ public:
       return;
     }
 
+    // Load URDF from parameter
     std::string urdf_string;
     ros::param::get("/robot_description", urdf_string);
     while (urdf_string.empty() && ros::ok())
@@ -438,6 +454,7 @@ public:
       ros::Duration(0.1).sleep();
     }
 
+    // Extract transmission infos from URDF
     transmission_interface::TransmissionParser parser;
     std::vector<transmission_interface::TransmissionInfo> infos;
     if (!parser.parse(urdf_string, infos))
@@ -446,6 +463,7 @@ public:
       return;
     }
 
+    // Load transmissions composed of target actuators
     BOOST_FOREACH (const transmission_interface::TransmissionInfo& info, infos)
     {
       if (std::find(actr_names_.begin(), actr_names_.end(), info.actuators_[0].name_) != actr_names_.end())
@@ -471,21 +489,19 @@ public:
       }
     }
 
+    // Initialize pressure sensor
     pres_sen_.init();
-
-    prox_sen_.init();
-
-    // Publisher for pressure
     pressure_pub_ = nh_.advertise<std_msgs::Float64>("pressure", 1);
 
-    // Publisher for flex
+    // Initialize proximity sensor
+    prox_sen_.init();
+    prox_pub_ = nh_.advertise<force_proximity_ros::ProximityArray>("proximity_array", 1);
+
+    // Initialize flex sensor
     for (int i = 0; i < flex_names_.size(); i++)
     {
       flex_pub_[flex_names_[i]] = nh_.advertise<std_msgs::UInt16>("flex/" + flex_names_[i], 1);
     }
-
-    // Publisher for proximity
-    prox_pub_ = nh_.advertise<force_proximity_ros::ProximityArray>("proximity_array", 1);
 
     // Start spinning
     nh_.setCallbackQueue(&subscriber_queue_);
@@ -520,6 +536,7 @@ public:
     prox_sen_.getProximityArray(&proximity_array);
     prox_pub_.publish(proximity_array);
 
+    // Propagate current actuator state to joints
     if (robot_transmissions_.get<transmission_interface::ActuatorToJointStateInterface>())
     {
       robot_transmissions_.get<transmission_interface::ActuatorToJointStateInterface>()->propagate();
@@ -528,6 +545,7 @@ public:
 
   void write()
   {
+    // Propagate joint commands to actuators
     if(robot_transmissions_.get<transmission_interface::JointToActuatorPositionInterface>())
     {
       robot_transmissions_.get<transmission_interface::JointToActuatorPositionInterface>()->propagate();
