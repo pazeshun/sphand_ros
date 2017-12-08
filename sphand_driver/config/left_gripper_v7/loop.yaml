@@ -25,6 +25,6 @@ wind_offset_flex:
   - 0.5
 
 # Proximity sensors
-proximity_sensor_num: 1
+proximity_sensor_num: 2
 
 control_rate: 100
