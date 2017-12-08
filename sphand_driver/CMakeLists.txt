@@ -4,7 +4,10 @@ project(sphand_driver)
 find_package(catkin REQUIRED COMPONENTS
   actionlib
   actionlib_msgs
+  baxter_core_msgs
   controller_manager
+  dynamixel_controllers
+  dynamixel_msgs
   force_proximity_ros
   hardware_interface
   message_generation
@@ -43,7 +46,10 @@ catkin_package(
   CATKIN_DEPENDS
   actionlib
   actionlib_msgs
+  baxter_core_msgs
   controller_manager
+  dynamixel_controllers
+  dynamixel_msgs
   force_proximity_ros
   hardware_interface
   message_runtime

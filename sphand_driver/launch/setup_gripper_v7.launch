@@ -28,11 +28,9 @@
   -->
 
   <!-- motors and sensors -->
-  <!--
   <include file="$(find sphand_driver)/launch/include/gripper_v7_dxl_controller.launch">
     <arg name="left_gripper" value="$(arg left_gripper)" />
   </include>
-  -->
   <include file="$(find sphand_driver)/launch/include/gripper_v7_loop.launch">
     <arg name="left_gripper" value="$(arg left_gripper)" />
   </include>

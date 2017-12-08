@@ -15,6 +15,7 @@
     <node name="loop" pkg="sphand_driver" type="gripper_v7_loop_node" output="screen">
       <rosparam file="$(find sphand_driver)/config/left_gripper_v7/loop.yaml" command="load"/>
       <remap from="joint_states" to="/robot/joint_states"/>
+      <remap from="vacuum" to="/vacuum_gripper/limb/left"/>
     </node>
 
     <!-- Start the joint state controller -->
