@@ -10,4 +10,4 @@
 - git:
     local-name: JSK_APC_WS/jsk_apc
     uri: https://github.com/start-jsk/jsk_apc.git
-    version: add-gripper-v7-model
+    version: master
