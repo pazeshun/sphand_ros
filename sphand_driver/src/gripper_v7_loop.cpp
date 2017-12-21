@@ -524,7 +524,7 @@ public:
 
     // Initialize pressure sensor
     pres_sen_.init();
-    pressure_pub_ = nh_.advertise<std_msgs::Float64>("pressure", 1);
+    pressure_pub_ = nh_.advertise<std_msgs::Float64>("pressure/state", 1);
 
     // Initialize proximity sensor
     prox_sen_.init();
@@ -533,7 +533,7 @@ public:
     // Initialize flex sensor
     for (int i = 0; i < flex_names_.size(); i++)
     {
-      flex_pub_[flex_names_[i]] = nh_.advertise<std_msgs::UInt16>("flex/" + flex_names_[i], 1);
+      flex_pub_[flex_names_[i]] = nh_.advertise<std_msgs::UInt16>("flex/" + flex_names_[i] + "/state", 1);
     }
 
     // Start spinning
