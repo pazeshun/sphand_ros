@@ -1,0 +1,8 @@
+#!/bin/bash
+
+echo ""
+echo "This script copies supervisor config for auto launching"
+echo "to /etc/supervisor/conf.d"
+echo ""
+
+sudo cp `rospack find sphand_driver`/supervisor/launch_left_gripper.conf /etc/supervisor/conf.d

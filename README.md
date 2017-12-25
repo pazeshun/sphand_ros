@@ -47,3 +47,11 @@ source ~/apc_ws/devel/setup.bash
 ```bash
 rosrun sphand_driver create_udev_rules
 ```
+
+### Setup auto launching
+
+```bash
+sudo apt-get install supervisor
+rosrun sphand_driver create_supervisor_conf
+sudo service supervisor restart
+```
