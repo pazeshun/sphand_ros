@@ -14,12 +14,9 @@ controller_names:
 flex_names:
   - right
   - left
-#flex_thresholds:
-#  - 680
-#  - 690
 flex_thresholds:
-  - 5000
-  - 5000
+  - 3260
+  - 3450
 wind_offset_flex:
   - 0.5
   - 0.5
