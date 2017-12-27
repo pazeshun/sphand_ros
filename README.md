@@ -55,3 +55,15 @@ sudo apt-get install supervisor
 rosrun sphand_driver create_supervisor_conf
 sudo service supervisor restart
 ```
+
+## Usage
+
+### How to kill and restart roslaunch
+
+```bash
+# Kill
+sudo service supervisor stop  # Or {sudo supervisorctl shutdown}
+kill <roslaunch_pid>  # Get pid by {ps aux | grep roslaunch}
+# Restart
+sudo service supervisor start
+```
