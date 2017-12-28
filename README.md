@@ -88,3 +88,9 @@ kill <roslaunch_pid>  # Get pid by {ps aux | grep roslaunch}
 # Restart
 sudo service supervisor start
 ```
+
+### How to see stdout/stderr from roslaunch
+
+```bash
+cat /var/log/supervisor/LaunchLeftGripper.log
+```
