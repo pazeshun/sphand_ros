@@ -21,11 +21,9 @@
         unless="$(arg left_gripper)"/>
 
   <!-- camera -->
-  <!--
   <include file="$(find sphand_driver)/launch/include/astra.launch">
     <arg name="left_gripper" value="$(arg left_gripper)" />
   </include>
-  -->
 
   <!-- motors and sensors -->
   <include file="$(find sphand_driver)/launch/include/gripper_v7_dxl_controller.launch">
