@@ -48,6 +48,12 @@ source ~/apc_ws/devel/setup.bash
 rosrun sphand_driver create_udev_rules
 ```
 
+### Setup ROS_MASTER_URI
+
+```bash
+rossetdefault baxter
+```
+
 ### Setup auto launching
 
 ```bash
