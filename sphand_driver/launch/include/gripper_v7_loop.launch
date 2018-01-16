@@ -12,7 +12,7 @@
   <!-- left gripper -->
   <group ns="gripper_front/limb/left" if="$(arg left_gripper)">
     <!-- Start the loop node -->
-    <node name="loop" pkg="sphand_driver" type="gripper_v7_loop_node" output="screen">
+    <node name="loop" pkg="sphand_driver" type="gripper_v7_loop_node" required="true" output="screen">
       <rosparam file="$(find sphand_driver)/config/left_gripper_v7/loop.yaml" command="load"/>
       <remap from="joint_states" to="/robot/joint_states"/>
       <remap from="vacuum" to="/vacuum_gripper/limb/left"/>
@@ -34,7 +34,7 @@
   <!-- right gripper -->
   <group ns="gripper_front/limb/right" unless="$(arg left_gripper)">
     <!-- Start the loop node -->
-    <node name="loop" pkg="sphand_driver" type="gripper_v7_loop_node" output="screen">
+    <node name="loop" pkg="sphand_driver" type="gripper_v7_loop_node" required="true" output="screen">
       <rosparam file="$(find sphand_driver)/config/right_gripper_v7/loop.yaml" command="load"/>
     </node>
 
