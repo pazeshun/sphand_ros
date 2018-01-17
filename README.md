@@ -48,14 +48,6 @@ source ~/apc_ws/devel/setup.bash
 rosrun sphand_driver create_udev_rules
 ```
 
-### Setup auto launching
-
-```bash
-sudo apt-get install supervisor
-rosrun sphand_driver create_supervisor_conf
-sudo service supervisor restart
-```
-
 ### Setup dynamixel motors
 
 1. Unite baudrate to 57600 by `rosrun dynamixel_driver set_servo_config.py`
@@ -75,6 +67,22 @@ In [4]: dxl_io = dynamixel_io.DynamixelIO("/dev/dxhub", 57600)
 In [5]: dxl_io.write(3, 17, (4,))  # Please check Alarm LED address is 17
 
 In [6]: dxl_io.write(3, 18, (4,))  # Please check Alarm Shutdown address is 18
+```
+
+### Setup time synchronization
+
+```bash
+sudo apt-get install ntp
+# Set the same configuration as other PCs. Don't forget to set disable monitor for security
+sudo vi /etc/ntp.conf
+```
+
+### Setup auto launching
+
+```bash
+sudo apt-get install supervisor
+rosrun sphand_driver create_supervisor_conf
+sudo service supervisor restart
 ```
 
 ## Usage
