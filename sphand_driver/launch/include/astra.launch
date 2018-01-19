@@ -8,6 +8,7 @@
 
   <arg name="l_hand_l_camera_device_id" value="$(arg serial_5)" />
   <arg name="l_hand_r_camera_device_id" value="$(arg serial_6)" />
+  <arg name="l_hand_stereo_devices" value="5_6" />
 
   <!-- ************************************************************************************* -->
   <!-- left hand camera                                                                      -->
@@ -24,10 +25,8 @@
       <arg name="device_id" value="$(arg l_hand_l_camera_device_id)" />
       <arg name="publish_tf" value="false" />
       <arg name="depth_registration" value="false" />
-      <!--
-      <arg name="rgb_camera_info_url" value="file://$(find jsk_arc2017_baxter)/data/camera_info/stereo_rgb_$(arg l_hand_stereo_devices)_left.yaml" />
-      <arg name="depth_camera_info_url" value="file://$(find jsk_arc2017_baxter)/data/camera_info/depth_$(arg l_hand_l_camera_device_id).yaml" />
-      -->
+      <arg name="rgb_camera_info_url" value="file://$(find sphand_driver)/camera_info/stereo_rgb_$(arg l_hand_stereo_devices)_left.yaml" />
+      <arg name="depth_camera_info_url" value="file://$(find sphand_driver)/camera_info/depth_$(arg l_hand_l_camera_device_id).yaml" />
     </include>
 
     <!-- right -->
@@ -40,10 +39,8 @@
       <arg name="device_id" value="$(arg l_hand_r_camera_device_id)" />
       <arg name="publish_tf" value="false" />
       <arg name="depth_registration" value="false" />
-      <!--
-      <arg name="rgb_camera_info_url" value="file://$(find jsk_arc2017_baxter)/data/camera_info/stereo_rgb_$(arg l_hand_stereo_devices)_right.yaml" />
-      <arg name="depth_camera_info_url" value="file://$(find jsk_arc2017_baxter)/data/camera_info/depth_$(arg l_hand_r_camera_device_id).yaml" />
-      -->
+      <arg name="rgb_camera_info_url" value="file://$(find sphand_driver)/camera_info/stereo_rgb_$(arg l_hand_stereo_devices)_right.yaml" />
+      <arg name="depth_camera_info_url" value="file://$(find sphand_driver)/camera_info/depth_$(arg l_hand_r_camera_device_id).yaml" />
       <arg name="depth_processing" value="false" />
       <arg name="depth_registered_processing" value="false" />
     </include>
