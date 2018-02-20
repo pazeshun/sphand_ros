@@ -388,6 +388,7 @@ private:
   std::vector<ros::Subscriber> actr_state_sub_;
   std::map<std::string, dynamixel_msgs::JointState> received_actr_states_;
   std::vector<ros::ServiceClient> torque_enable_client_;
+  std::map<std::string, double> pad_lim_conf_;
 
   // E-stop interface
   ros::Subscriber robot_state_sub_;
@@ -416,7 +417,9 @@ private:
 
 public:
   GripperLoop(const std::vector<std::string>& actr_names, const std::vector<std::string> controller_names,
-              const std::vector<std::string>& flex_names, const std::vector<int>& flex_thre, const std::vector<double>& wind_offset_flex, const int prox_num)
+              const std::vector<std::string>& flex_names, const std::vector<int>& flex_thre,
+              const std::vector<double>& wind_offset_flex, const int prox_num,
+              const std::map<std::string, double> pad_lim_conf)
     : actr_names_(actr_names)
     , controller_names_(controller_names)
     , flex_names_(flex_names)
@@ -424,6 +427,7 @@ public:
     , flex_thre_(flex_thre)
     , wind_offset_flex_(wind_offset_flex)
     , prox_sen_(prox_num)
+    , pad_lim_conf_(pad_lim_conf)
     , is_gripper_enabled_(true)
   {
     // Register actuator interfaces to transmission loader
@@ -619,6 +623,19 @@ public:
           }
         }
 
+        // If prismatic joint is drawed back, limit vacuum pad joint to avoid collision
+        if (actr_names_[i].find("vacuum_pad_tendon_winder") != std::string::npos)
+        {
+          int prismatic_idx =
+              std::distance(controller_names_.begin(), std::find(controller_names_.begin(), controller_names_.end(),
+                                                                 "prismatic_joint_controller"));
+          if (actr_curr_pos_[prismatic_idx] < pad_lim_conf_["prismatic_joint_threshold"] &&
+              actr_cmd_pos_[i] > pad_lim_conf_["upper_angle_limit"])
+          {
+            actr_cmd_pos_[i] = pad_lim_conf_["upper_angle_limit"];
+          }
+        }
+
         std_msgs::Float64 msg;
         msg.data = actr_cmd_pos_[i];
         actr_cmd_pub_[i].publish(msg);
@@ -668,17 +685,18 @@ int main(int argc, char** argv)
   std::vector<double> wind_offset_flex;
   int prox_num;
   int rate_hz;
+  std::map<std::string, double> pad_lim_conf;
 
   if (!(ros::param::get("~actuator_names", actr_names) && ros::param::get("~controller_names", controller_names) &&
         ros::param::get("~flex_names", flex_names) && ros::param::get("~flex_thresholds", flex_thre) &&
         ros::param::get("~wind_offset_flex", wind_offset_flex) && ros::param::get("~proximity_sensor_num", prox_num) &&
-        ros::param::get("~control_rate", rate_hz)))
+        ros::param::get("~control_rate", rate_hz) && ros::param::get("~vacuum_pad_motion_limit_config", pad_lim_conf)))
   {
     ROS_ERROR("Couldn't get necessary parameters");
     return 0;
   }
 
-  GripperLoop gripper(actr_names, controller_names, flex_names, flex_thre, wind_offset_flex, prox_num);
+  GripperLoop gripper(actr_names, controller_names, flex_names, flex_thre, wind_offset_flex, prox_num, pad_lim_conf);
   controller_manager::ControllerManager cm(&gripper);
 
   // For non-realtime spinner thread

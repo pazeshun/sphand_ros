@@ -10,6 +10,12 @@ controller_names:
   - finger_yaw_joint_controller
   - finger_tendon_controller
 
+vacuum_pad_motion_limit_config:
+  # Lower limit of prismatic joint for free motion of vacuum pad
+  prismatic_joint_threshold: 0.36
+  # Upper angle limit of vacuum pad joint
+  upper_angle_limit: 0
+
 # Flex sensors
 flex_names:
   - right
