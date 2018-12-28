@@ -16,6 +16,10 @@ find_package(catkin REQUIRED COMPONENTS
   transmission_interface
 )
 
+## https://answers.ros.org/question/247803/mraa-library-inclusion-in-project/
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(mraa REQUIRED mraa)
+
 catkin_python_setup()
 
 ################################################
@@ -56,6 +60,7 @@ catkin_package(
   roscpp
   std_msgs
   transmission_interface
+  DEPENDS mraa
 )
 
 ###########
@@ -65,6 +70,7 @@ catkin_package(
 include_directories(
   ${catkin_INCLUDE_DIRS}
   ${Boost_INCLUDE_DIRS}
+  ${mraa_INCLUDE_DIRS}
 )
 
 ## Declare a C++ executable
@@ -74,7 +80,7 @@ add_executable(gripper_v7_loop_node src/gripper_v7_loop.cpp)
 add_dependencies(gripper_v7_loop_node ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(gripper_v7_loop_node mraa ${catkin_LIBRARIES})
+target_link_libraries(gripper_v7_loop_node ${mraa_LIBRARIES} ${catkin_LIBRARIES})
 
 #############
 ## Install ##
