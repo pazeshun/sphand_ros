@@ -4,6 +4,7 @@
 // C++
 #include <boost/foreach.hpp>
 #include <boost/scoped_ptr.hpp>
+#include <limits>
 #include <map>
 #include <vector>
 
@@ -20,7 +21,7 @@
 #include <baxter_core_msgs/AssemblyState.h>
 #include <dynamixel_controllers/TorqueEnable.h>
 #include <dynamixel_msgs/JointState.h>
-#include <force_proximity_ros/Proximity.h>
+#include <force_proximity_ros/ProximityStamped.h>
 #include <force_proximity_ros/ProximityArray.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/Float64.h>
@@ -191,43 +192,22 @@ public:
   }
 };  // end class FlexSensorDriver
 
-class ProximitySensorDriver
+class Pca9547Mraa
 {
 private:
-  // Constants
-  enum
-  {
-    // 7-bit unshifted I2C address of Multiplexer (PCA9547D)
-    MUX_ADDR = 0x70,
-    // 7-bit unshifted I2C address of VCNL4040
-    VCNL4040_ADDR = 0x60,
-    // Command Registers
-    PS_CONF1 = 0x03,
-    PS_CONF3 = 0x04,
-    PS_DATA_L = 0x08,
-  };
-  const int sensor_num_;
-  // Sensitivity of touch/release detection
-  const int sensitivity_;
-  // exponential average weight parameter / cut-off frequency for high-pass filter
-  const double ea_;
-  // low-pass filtered proximity reading
-  std::vector<double> average_value_;
-  // FA-II value
-  std::vector<double> fa2_;
-  mraa::I2c i2c_;
+  mraa::I2c* i2c_;
+  uint8_t i2c_addr_;
 
 public:
-  ProximitySensorDriver(const int sensor_num = 1, const int i2c_bus = 0)
-    : sensor_num_(sensor_num), sensitivity_(1000), ea_(0.3), fa2_(sensor_num, 0), i2c_(i2c_bus)
+  Pca9547Mraa(mraa::I2c* i2c, const uint8_t i2c_addr) : i2c_(i2c), i2c_addr_(i2c_addr)
   {
   }
 
-  ~ProximitySensorDriver()
+  ~Pca9547Mraa()
   {
   }
 
-  mraa::Result setMultiplexerCh(const uint8_t mux_addr, const int8_t ch)
+  mraa::Result setChannel(const int8_t ch)
   {
     uint8_t tx;
 
@@ -243,33 +223,71 @@ public:
     }
     else
     {
-      ROS_ERROR("I2C Multiplexer has no channel %d", ch);
+      ROS_ERROR("I2C Multiplexer PCA9547 has no channel %d", ch);
       return mraa::ERROR_UNSPECIFIED;
     }
 
-    i2c_.address(mux_addr);
-    return i2c_.writeByte(tx);
+    i2c_->address(i2c_addr_);
+    return i2c_->writeByte(tx);
+  }
+};  // end class Pca9547Mraa
+
+class Vcnl4040Mraa
+{
+private:
+  // Constants
+  enum
+  {
+    // Command Registers
+    PS_CONF1 = 0x03,
+    PS_CONF3 = 0x04,
+    PS_DATA_L = 0x08,
+  };
+  mraa::I2c* i2c_;
+  uint8_t i2c_addr_;
+  // Sensitivity of touch/release detection
+  int sensitivity_;
+  // exponential average weight parameter / cut-off frequency for high-pass filter
+  double ea_;
+  // low-pass filtered proximity reading
+  double average_value_;
+  // FA-II value
+  double fa2_;
+
+public:
+  Vcnl4040Mraa(mraa::I2c* i2c, const uint8_t i2c_addr)
+    : i2c_(i2c)
+    , i2c_addr_(i2c_addr)
+    , sensitivity_(1000)
+    , ea_(0.3)
+    , average_value_(std::numeric_limits<double>::quiet_NaN())
+    , fa2_(0)
+  {
+  }
+
+  ~Vcnl4040Mraa()
+  {
   }
 
   // Read from two Command Registers of VCNL4040
-  uint16_t readCommandRegVCNL4040(const uint8_t command_code)
+  uint16_t readCommandRegister(const uint8_t command_code)
   {
-    i2c_.address(VCNL4040_ADDR);
-    uint16_t rx = i2c_.readWordReg(command_code);
+    i2c_->address(i2c_addr_);
+    uint16_t rx = i2c_->readWordReg(command_code);
     return rx;
   }
 
   // Write to two Command Registers of VCNL4040
-  mraa::Result writeCommandRegVCNL4040(const uint8_t command_code, const uint8_t low_data, const uint8_t high_data)
+  mraa::Result writeCommandRegister(const uint8_t command_code, const uint8_t low_data, const uint8_t high_data)
   {
     uint16_t data = ((uint16_t)high_data << 8) | low_data;
 
-    i2c_.address(VCNL4040_ADDR);
-    return i2c_.writeWordReg(command_code, data);
+    i2c_->address(i2c_addr_);
+    return i2c_->writeWordReg(command_code, data);
   }
 
   // Configure VCNL4040
-  void initVCNL4040()
+  void init()
   {
     // Set PS_CONF3 and PS_MS
     uint8_t conf3 = 0x00;
@@ -278,89 +296,120 @@ public:
     // uint8_t ms = 0x02;  // IR LED current to 100mA
     // uint8_t ms = 0x06;  // IR LED current to 180mA
     // uint8_t ms = 0x07;  // IR LED current to 200mA
-    writeCommandRegVCNL4040(PS_CONF3, conf3, ms);
+    writeCommandRegister(PS_CONF3, conf3, ms);
   }
 
-  void startProxSensor()
+  void startSensing()
   {
     // Clear PS_SD to turn on proximity sensing
     // uint8_t conf1 = 0x00;  // Clear PS_SD bit to begin reading
     uint8_t conf1 = 0x0E;  // Integrate 8T, Clear PS_SD bit to begin reading
     // uint8_t conf2 = 0x00;  // Clear PS to 12-bit
     uint8_t conf2 = 0x08;  // Set PS to 16-bit
-    writeCommandRegVCNL4040(PS_CONF1, conf1, conf2);
+    writeCommandRegister(PS_CONF1, conf1, conf2);
   }
 
-  void stopProxSensor()
+  void stopSensing()
   {
     // Set PS_SD to turn off proximity sensing
     uint8_t conf1 = 0x01;  // Set PS_SD bit to stop reading
     uint8_t conf2 = 0x00;
-    writeCommandRegVCNL4040(PS_CONF1, conf1, conf2);
+    writeCommandRegister(PS_CONF1, conf1, conf2);
+  }
+
+  uint16_t getRawProximity()
+  {
+    return readCommandRegister(PS_DATA_L);
+  }
+
+  void getProximityStamped(force_proximity_ros::ProximityStamped* prox_st)
+  {
+    uint16_t raw = getRawProximity();
+    // Record time of reading sensor
+    prox_st->header.stamp = ros::Time::now();
+    prox_st->proximity.proximity = raw;
+    if (std::isnan(average_value_))
+    {
+      average_value_ = raw;
+    }
+    prox_st->proximity.average = average_value_;
+    prox_st->proximity.fa2derivative = average_value_ - raw - fa2_;
+    fa2_ = average_value_ - raw;
+    prox_st->proximity.fa2 = fa2_;
+    if (fa2_ < -sensitivity_)
+    {
+      prox_st->proximity.mode = "T";
+    }
+    else if (fa2_ > sensitivity_)
+    {
+      prox_st->proximity.mode = "R";
+    }
+    else
+    {
+      prox_st->proximity.mode = "0";
+    }
+    average_value_ = ea_ * raw + (1 - ea_) * average_value_;
+  }
+};  // end class Vcnl4040Mraa
+
+class I2cSensorDriver
+{
+private:
+  // Constants
+  enum
+  {
+    // 7-bit unshifted I2C address of Multiplexer (PCA9547)
+    MUX_ADDR = 0x70,
+    // 7-bit unshifted I2C address of VCNL4040
+    VCNL4040_ADDR = 0x60,
+  };
+  const int sensor_num_;
+  mraa::I2c i2c_;
+  std::vector<Pca9547Mraa> pca9547_array;
+  std::vector<Vcnl4040Mraa> vcnl4040_array;
+
+public:
+  I2cSensorDriver(const int sensor_num = 1, const int i2c_bus = 0) : sensor_num_(sensor_num), i2c_(i2c_bus)
+  {
+    pca9547_array.push_back(Pca9547Mraa(&i2c_, MUX_ADDR));
+    for (int sensor_no = 0; sensor_no < sensor_num_; sensor_no++)
+    {
+      vcnl4040_array.push_back(Vcnl4040Mraa(&i2c_, VCNL4040_ADDR));
+    }
+  }
+
+  ~I2cSensorDriver()
+  {
   }
 
   bool init()
   {
     for (int sensor_no = 0; sensor_no < sensor_num_; sensor_no++)
     {
-      setMultiplexerCh(MUX_ADDR, sensor_no);
-      initVCNL4040();
-      startProxSensor();
+      pca9547_array[0].setChannel(sensor_no);
+      vcnl4040_array[sensor_no].init();
+      vcnl4040_array[sensor_no].startSensing();
     }
 
     return true;
   }
 
-  void getRawProximities(std::vector<uint16_t>* raw_proximities)
-  {
-    raw_proximities->clear();
-    for (int sensor_no = 0; sensor_no < sensor_num_; sensor_no++)
-    {
-      setMultiplexerCh(MUX_ADDR, sensor_no);
-      raw_proximities->push_back(readCommandRegVCNL4040(PS_DATA_L));
-    }
-  }
-
   void getProximityArray(force_proximity_ros::ProximityArray* proximity_array)
   {
-    std::vector<uint16_t> raw_proximities;
-    getRawProximities(&raw_proximities);
-    // Record time of reading sensor
-    proximity_array->header.stamp = ros::Time::now();
-
     // Fill necessary data of proximity
     proximity_array->proximities.clear();
-    force_proximity_ros::Proximity proximity;
+    force_proximity_ros::ProximityStamped prox_st;
     for (int sensor_no = 0; sensor_no < sensor_num_; sensor_no++)
     {
-      uint16_t raw = raw_proximities[sensor_no];
-      proximity.proximity = raw;
-      if (average_value_.size() == sensor_no)
-      {
-        // Init average value
-        average_value_.push_back(proximity.proximity);
-      }
-      proximity.average = average_value_[sensor_no];
-      proximity.fa2derivative = average_value_[sensor_no] - raw - fa2_[sensor_no];
-      fa2_[sensor_no] = average_value_[sensor_no] - raw;
-      proximity.fa2 = fa2_[sensor_no];
-      if (fa2_[sensor_no] < -sensitivity_)
-      {
-          proximity.mode = "T";
-      }
-      else if (fa2_[sensor_no] > sensitivity_)
-      {
-          proximity.mode = "R";
-      }
-      else
-      {
-          proximity.mode = "0";
-      }
-      average_value_[sensor_no] = ea_ * raw + (1 - ea_) * average_value_[sensor_no];
-      proximity_array->proximities.push_back(proximity);
+      pca9547_array[0].setChannel(sensor_no);
+      vcnl4040_array[sensor_no].getProximityStamped(&prox_st);
+      proximity_array->proximities.push_back(prox_st.proximity);
     }
+
+    // Record time of reading last sensor
+    proximity_array->header.stamp = prox_st.header.stamp;
   }
-};  // end class ProximitySensorDriver
+};  // end class I2cSensorDriver
 
 class GripperLoop : public hardware_interface::RobotHW
 {
@@ -408,7 +457,7 @@ private:
   std::map<std::string, ros::Publisher> flex_pub_;
 
   // Proximity sensor
-  ProximitySensorDriver prox_sen_;
+  I2cSensorDriver prox_sen_;
   ros::Publisher prox_pub_;
 
   // For multi-threaded spinning
