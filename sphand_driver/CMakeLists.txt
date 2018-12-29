@@ -77,12 +77,15 @@ include_directories(
 
 ## Declare a C++ executable
 add_executable(gripper_v7_loop_node src/gripper_v7_loop.cpp)
+add_executable(gripper_v8_loop_node src/gripper_v8_loop.cpp)
 
 ## Add cmake target dependencies of the executable
 add_dependencies(gripper_v7_loop_node ${catkin_EXPORTED_TARGETS})
+add_dependencies(gripper_v8_loop_node ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(gripper_v7_loop_node ${mraa_LIBRARIES} ${catkin_LIBRARIES})
+target_link_libraries(gripper_v8_loop_node ${mraa_LIBRARIES} ${catkin_LIBRARIES})
 
 #############
 ## Install ##
