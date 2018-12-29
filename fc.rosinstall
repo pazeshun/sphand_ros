@@ -6,6 +6,10 @@
     local-name: dynamixel_motor
     uri: https://github.com/pazeshun/dynamixel_motor.git
     version: gripper-v6-devel
+- git:
+    local-name: vl53l0x_mraa_ros
+    uri: https://github.com/pazeshun/vl53l0x_mraa_ros.git
+    version: master
 # For robot model and force_proximity_ros
 - git:
     local-name: JSK_APC_WS/jsk_apc
