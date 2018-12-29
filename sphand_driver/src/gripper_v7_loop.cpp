@@ -196,10 +196,9 @@ class Pca9547Mraa
 {
 private:
   mraa::I2c* i2c_;
-  uint8_t i2c_addr_;
 
 public:
-  Pca9547Mraa(mraa::I2c* i2c, const uint8_t i2c_addr) : i2c_(i2c), i2c_addr_(i2c_addr)
+  Pca9547Mraa()
   {
   }
 
@@ -207,7 +206,12 @@ public:
   {
   }
 
-  mraa::Result setChannel(const int8_t ch)
+  void init(mraa::I2c* i2c)
+  {
+    i2c_ = i2c;
+  }
+
+  mraa::Result setChannel(const uint8_t mux_addr, const int8_t ch)
   {
     uint8_t tx;
 
@@ -227,7 +231,7 @@ public:
       return mraa::ERROR_UNSPECIFIED;
     }
 
-    i2c_->address(i2c_addr_);
+    i2c_->address(mux_addr);
     return i2c_->writeByte(tx);
   }
 };  // end class Pca9547Mraa
@@ -255,10 +259,8 @@ private:
   double fa2_;
 
 public:
-  Vcnl4040Mraa(mraa::I2c* i2c, const uint8_t i2c_addr)
-    : i2c_(i2c)
-    , i2c_addr_(i2c_addr)
-    , sensitivity_(1000)
+  Vcnl4040Mraa()
+    : sensitivity_(1000)
     , ea_(0.3)
     , average_value_(std::numeric_limits<double>::quiet_NaN())
     , fa2_(0)
@@ -287,8 +289,11 @@ public:
   }
 
   // Configure VCNL4040
-  void init()
+  void init(mraa::I2c* i2c, const uint8_t i2c_addr)
   {
+    i2c_ = i2c;
+    i2c_addr_ = i2c_addr;
+
     // Set PS_CONF3 and PS_MS
     uint8_t conf3 = 0x00;
     // uint8_t ms = 0x00;  // IR LED current to 50mA
@@ -365,17 +370,13 @@ private:
   };
   const int sensor_num_;
   mraa::I2c i2c_;
-  std::vector<Pca9547Mraa> pca9547_array;
+  Pca9547Mraa pca9547;
   std::vector<Vcnl4040Mraa> vcnl4040_array;
 
 public:
-  I2cSensorDriver(const int sensor_num = 1, const int i2c_bus = 0) : sensor_num_(sensor_num), i2c_(i2c_bus)
+  I2cSensorDriver(const int sensor_num = 1, const int i2c_bus = 0)
+    : sensor_num_(sensor_num), i2c_(i2c_bus), vcnl4040_array(sensor_num, Vcnl4040Mraa())
   {
-    pca9547_array.push_back(Pca9547Mraa(&i2c_, MUX_ADDR));
-    for (int sensor_no = 0; sensor_no < sensor_num_; sensor_no++)
-    {
-      vcnl4040_array.push_back(Vcnl4040Mraa(&i2c_, VCNL4040_ADDR));
-    }
   }
 
   ~I2cSensorDriver()
@@ -384,10 +385,11 @@ public:
 
   bool init()
   {
+    pca9547.init(&i2c_);
     for (int sensor_no = 0; sensor_no < sensor_num_; sensor_no++)
     {
-      pca9547_array[0].setChannel(sensor_no);
-      vcnl4040_array[sensor_no].init();
+      pca9547.setChannel(MUX_ADDR, sensor_no);
+      vcnl4040_array[sensor_no].init(&i2c_, VCNL4040_ADDR);
       vcnl4040_array[sensor_no].startSensing();
     }
 
@@ -401,7 +403,7 @@ public:
     force_proximity_ros::ProximityStamped prox_st;
     for (int sensor_no = 0; sensor_no < sensor_num_; sensor_no++)
     {
-      pca9547_array[0].setChannel(sensor_no);
+      pca9547.setChannel(MUX_ADDR, sensor_no);
       vcnl4040_array[sensor_no].getProximityStamped(&prox_st);
       proximity_array->proximities.push_back(prox_st.proximity);
     }
