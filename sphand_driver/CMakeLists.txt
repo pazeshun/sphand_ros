@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
   transmission_interface
+  vl53l0x_mraa_ros
 )
 
 ## https://answers.ros.org/question/247803/mraa-library-inclusion-in-project/
@@ -60,6 +61,7 @@ catkin_package(
   roscpp
   std_msgs
   transmission_interface
+  vl53l0x_mraa_ros
   DEPENDS mraa
 )
 
