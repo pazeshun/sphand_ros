@@ -441,11 +441,16 @@ public:
   {
   }
 
-  void setMultiplexers(std::vector<std::map<std::string, int> >& mux_infos)
+  void setMultiplexers(std::vector<std::map<std::string, int> >& mux_infos,
+                       std::vector<std::map<std::string, int> > prev_infos = std::vector<std::map<std::string, int> >())
   {
     for (int mux_no = 0; mux_no < mux_infos.size(); mux_no++)
     {
       std::map<std::string, int>& mux_info = mux_infos[mux_no];
+      if (prev_infos.size() > mux_no && prev_infos[mux_no] == mux_info)
+      {
+        continue;
+      }
       if (mux_info["type"] == 9547)
       {
         pca9547.setChannel(mux_info["address"], mux_info["channel"]);
@@ -463,7 +468,14 @@ public:
     pca9546.init(&i2c_);
     for (int sensor_no = 0; sensor_no < i2c_mux_.size(); sensor_no++)
     {
-      setMultiplexers(i2c_mux_[sensor_no]);
+      if (sensor_no == 0)
+      {
+        setMultiplexers(i2c_mux_[sensor_no]);
+      }
+      else
+      {
+        setMultiplexers(i2c_mux_[sensor_no], i2c_mux_[sensor_no - 1]);
+      }
       vcnl4040_array[sensor_no].init(&i2c_, VCNL4040_ADDR);
       vl53l0x_array[sensor_no].begin(&i2c_, false, VL53L0X_ADDR);
     }
@@ -482,7 +494,14 @@ public:
     vl53l0x_mraa_ros::RangingMeasurementDataStamped tof_data_st;
     for (int sensor_no = 0; sensor_no < i2c_mux_.size(); sensor_no++)
     {
-      setMultiplexers(i2c_mux_[sensor_no]);
+      if (sensor_no == 0)
+      {
+        setMultiplexers(i2c_mux_[sensor_no]);
+      }
+      else
+      {
+        setMultiplexers(i2c_mux_[sensor_no], i2c_mux_[sensor_no - 1]);
+      }
 
       // Intensity
       vcnl4040_array[sensor_no].startSensing();
