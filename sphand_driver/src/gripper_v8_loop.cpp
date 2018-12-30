@@ -433,6 +433,8 @@ public:
     , vcnl4040_array(i2c_mux.size(), Vcnl4040Mraa())
     , vl53l0x_array(new Vl53l0xMraa[i2c_mux.size()])
   {
+    // cf. https://forum.up-community.org/discussion/2402/i2c-400khz-and-pullup-resistors
+    i2c_.frequency(mraa::I2C_FAST);
   }
 
   ~I2cSensorDriver()
