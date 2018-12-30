@@ -425,6 +425,8 @@ private:
   std::vector<Vcnl4040Mraa> vcnl4040_array;
   boost::scoped_array<Vl53l0xMraa> vl53l0x_array;
   // FIXME: If using std::vector, node is shut down when Vl53l0xMraa::begin() is called
+  int update_tof_no;
+  vl53l0x_mraa_ros::RangingMeasurementDataStampedArray current_tof_array;
 
 public:
   I2cSensorDriver(const std::vector<std::vector<std::map<std::string, int> > > i2c_mux, const int i2c_bus = 0)
@@ -432,9 +434,11 @@ public:
     , i2c_(i2c_bus)
     , vcnl4040_array(i2c_mux.size(), Vcnl4040Mraa())
     , vl53l0x_array(new Vl53l0xMraa[i2c_mux.size()])
+    , update_tof_no(0)
   {
     // cf. https://forum.up-community.org/discussion/2402/i2c-400khz-and-pullup-resistors
     i2c_.frequency(mraa::I2C_FAST);
+    current_tof_array.array.resize(i2c_mux_.size());
   }
 
   ~I2cSensorDriver()
@@ -478,6 +482,7 @@ public:
       }
       vcnl4040_array[sensor_no].init(&i2c_, VCNL4040_ADDR);
       vl53l0x_array[sensor_no].begin(&i2c_, false, VL53L0X_ADDR);
+      vl53l0x_array[sensor_no].setMeasurementTimingBudget(20000);
     }
 
     return true;
@@ -486,6 +491,20 @@ public:
   void getProximityArrays(force_proximity_ros::ProximityArray* intensity_array,
                           vl53l0x_mraa_ros::RangingMeasurementDataStampedArray* tof_array)
   {
+    // Start intensity sensing
+    for (int sensor_no = 0; sensor_no < i2c_mux_.size(); sensor_no++)
+    {
+      if (sensor_no == 0)
+      {
+        setMultiplexers(i2c_mux_[sensor_no]);
+      }
+      else
+      {
+        setMultiplexers(i2c_mux_[sensor_no], i2c_mux_[sensor_no - 1]);
+      }
+      vcnl4040_array[sensor_no].startSensing();
+    }
+
     // Fill necessary data of proximity
     intensity_array->proximities.clear();
     tof_array->array.clear();
@@ -504,26 +523,33 @@ public:
       }
 
       // Intensity
-      vcnl4040_array[sensor_no].startSensing();
-      ros::Duration(0.01).sleep();
       vcnl4040_array[sensor_no].getProximityStamped(&intensity_st);
       vcnl4040_array[sensor_no].stopSensing();
       intensity_array->proximities.push_back(intensity_st.proximity);
 
       // ToF
-      vl53l0x_array[sensor_no].getSingleRangingMeasurement(&tof_data);
-      tof_data_st.header.stamp = ros::Time::now();
-      tof_data_st.data.timestamp = tof_data.TimeStamp;
-      tof_data_st.data.measurement_time_usec = tof_data.MeasurementTimeUsec;
-      tof_data_st.data.range_millimeter = tof_data.RangeMilliMeter;
-      tof_data_st.data.range_d_max_millimeter = tof_data.RangeDMaxMilliMeter;
-      tof_data_st.data.signal_rate_rtn_megacps = tof_data.SignalRateRtnMegaCps;
-      tof_data_st.data.ambient_rate_rtn_megacps = tof_data.AmbientRateRtnMegaCps;
-      tof_data_st.data.effective_spad_rtn_count = tof_data.EffectiveSpadRtnCount;
-      tof_data_st.data.zone_id = tof_data.ZoneId;
-      tof_data_st.data.range_fractional_part = tof_data.RangeFractionalPart;
-      tof_data_st.data.range_status = tof_data.RangeStatus;
-      tof_array->array.push_back(tof_data_st);
+      if (sensor_no == update_tof_no)
+      {
+        vl53l0x_array[sensor_no].getSingleRangingMeasurementFast(&tof_data);
+        tof_data_st.header.stamp = ros::Time::now();
+        tof_data_st.data.timestamp = tof_data.TimeStamp;
+        tof_data_st.data.measurement_time_usec = tof_data.MeasurementTimeUsec;
+        tof_data_st.data.range_millimeter = tof_data.RangeMilliMeter;
+        tof_data_st.data.range_d_max_millimeter = tof_data.RangeDMaxMilliMeter;
+        tof_data_st.data.signal_rate_rtn_megacps = tof_data.SignalRateRtnMegaCps;
+        tof_data_st.data.ambient_rate_rtn_megacps = tof_data.AmbientRateRtnMegaCps;
+        tof_data_st.data.effective_spad_rtn_count = tof_data.EffectiveSpadRtnCount;
+        tof_data_st.data.zone_id = tof_data.ZoneId;
+        tof_data_st.data.range_fractional_part = tof_data.RangeFractionalPart;
+        tof_data_st.data.range_status = tof_data.RangeStatus;
+        current_tof_array.array[sensor_no] = tof_data_st;
+      }
+      tof_array->array.push_back(current_tof_array.array[sensor_no]);
+    }
+    update_tof_no++;
+    if (update_tof_no >= i2c_mux_.size())
+    {
+      update_tof_no = 0;
     }
 
     // Record time of reading last sensor

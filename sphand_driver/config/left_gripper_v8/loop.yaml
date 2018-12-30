@@ -84,4 +84,5 @@ i2c_multiplexers_to_access_each_sensor:
 # FIXME: As dynamixel_controllers cannot run at over 27 Hz, command publish rate should be
 #        less than 27 Hz, otherwise motor command will be delayed due to infinite queue of
 #        ros subscribers in dynamixel_controllers
-control_rate: 25
+# FIXME: Reading I2C sensors limits loop rate to 24 Hz
+control_rate: 24
