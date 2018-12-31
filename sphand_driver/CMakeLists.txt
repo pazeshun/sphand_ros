@@ -31,6 +31,12 @@ catkin_python_setup()
 ## Declare ROS messages, services and actions ##
 ################################################
 
+add_message_files(
+  FILES
+  IntensityProxCalibInfo.msg
+  IntensityProxCalibInfoArray.msg
+)
+
 add_action_files(
   FILES
   CalibJoint.action
