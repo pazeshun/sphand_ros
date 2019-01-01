@@ -35,6 +35,7 @@ add_message_files(
   FILES
   IntensityProxCalibInfo.msg
   IntensityProxCalibInfoArray.msg
+  ProximityStampedArray.msg
 )
 
 add_action_files(
@@ -45,6 +46,7 @@ add_action_files(
 generate_messages(
   DEPENDENCIES
   actionlib_msgs
+  force_proximity_ros
 )
 
 ################################################

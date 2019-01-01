@@ -26,7 +26,7 @@
 #include <dynamixel_controllers/TorqueEnable.h>
 #include <dynamixel_msgs/JointState.h>
 #include <force_proximity_ros/ProximityStamped.h>
-#include <force_proximity_ros/ProximityArray.h>
+#include <sphand_driver/ProximityStampedArray.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/Float64.h>
 #include <std_msgs/UInt16.h>
@@ -488,7 +488,7 @@ public:
     return true;
   }
 
-  void getProximityArrays(force_proximity_ros::ProximityArray* intensity_array,
+  void getProximityArrays(sphand_driver::ProximityStampedArray* intensity_array,
                           vl53l0x_mraa_ros::RangingMeasurementDataStampedArray* tof_array)
   {
     // Start intensity sensing
@@ -525,7 +525,7 @@ public:
       // Intensity
       vcnl4040_array[sensor_no].getProximityStamped(&intensity_st);
       vcnl4040_array[sensor_no].stopSensing();
-      intensity_array->proximities.push_back(intensity_st.proximity);
+      intensity_array->proximities.push_back(intensity_st);
 
       // ToF
       if (sensor_no == update_tof_no)
@@ -729,7 +729,7 @@ public:
 
     // Initialize proximity sensor
     i2c_sen_.init();
-    intensity_prox_pub_ = nh_.advertise<force_proximity_ros::ProximityArray>("intensity_proximities", 1);
+    intensity_prox_pub_ = nh_.advertise<sphand_driver::ProximityStampedArray>("intensity_proximities", 1);
     tof_prox_pub_ = nh_.advertise<vl53l0x_mraa_ros::RangingMeasurementDataStampedArray>("tof_proximities", 1);
 
     // Initialize flex sensor
@@ -766,7 +766,7 @@ public:
     }
 
     // Get and publish proximity
-    force_proximity_ros::ProximityArray intensity_array;
+    sphand_driver::ProximityStampedArray intensity_array;
     vl53l0x_mraa_ros::RangingMeasurementDataStampedArray tof_array;
     i2c_sen_.getProximityArrays(&intensity_array, &tof_array);
     intensity_prox_pub_.publish(intensity_array);
