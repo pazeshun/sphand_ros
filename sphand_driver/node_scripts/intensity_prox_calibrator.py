@@ -20,13 +20,13 @@ class IntensityProxCalibrator(object):
         self.i_init = rospy.get_param('~i_init', None)
         if self.i_init is not None:
             self.i_init = np.array(self.i_init)
-        self.i_valid_min = rospy.get_param('~i_valid_min', 20)
+        self.i_valid_min = rospy.get_param('~i_valid_min', 50)
         self.i_valid_max_dist = rospy.get_param('~i_valid_max_dist', 60)
         self.i_height_from_tof = rospy.get_param('~i_height_from_tof', None)
         if self.i_height_from_tof is not None:
             self.i_height_from_tof = np.array(self.i_height_from_tof)
         self.i_queue_size_for_tof = rospy.get_param('~i_queue_size_for_tof', 2)
-        self.tof_valid_min = rospy.get_param('~tof_valid_min', 30)
+        self.tof_valid_min = rospy.get_param('~tof_valid_min', 40)
         self.tof_delay_from_i = rospy.get_param('~tof_delay_from_i', 0.0)
         self.tof_tm_tolerance = rospy.get_param('~tof_tm_tolerance', 0.02)
         self.i_raw = None
