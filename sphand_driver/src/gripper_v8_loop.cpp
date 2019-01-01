@@ -481,7 +481,10 @@ public:
         setMultiplexers(i2c_mux_[sensor_no], i2c_mux_[sensor_no - 1]);
       }
       vcnl4040_array[sensor_no].init(&i2c_, VCNL4040_ADDR);
-      vl53l0x_array[sensor_no].begin(&i2c_, false, VL53L0X_ADDR);
+      if(!vl53l0x_array[sensor_no].begin(&i2c_, false, VL53L0X_ADDR))
+      {
+        ROS_FATAL("Failed to boot VL53L0X No.%d", sensor_no);
+      }
       vl53l0x_array[sensor_no].setMeasurementTimingBudget(20000);
     }
 
