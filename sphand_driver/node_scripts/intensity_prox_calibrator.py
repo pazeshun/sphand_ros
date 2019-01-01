@@ -25,11 +25,14 @@ class IntensityProxCalibrator(object):
         self.i_height_from_tof = rospy.get_param('~i_height_from_tof', None)
         if self.i_height_from_tof is not None:
             self.i_height_from_tof = np.array(self.i_height_from_tof)
+        self.i_queue_size_for_tof = rospy.get_param('~i_queue_size_for_tof', 2)
         self.tof_valid_min = rospy.get_param('~tof_valid_min', 30)
-        self.i_tof_tm_tolerance = rospy.get_param('~i_tof_tm_tolerance', 0.02)
-        self.i_last_tms = None
+        self.tof_delay_from_i = rospy.get_param('~tof_delay_from_i', 0.0)
+        self.tof_tm_tolerance = rospy.get_param('~tof_tm_tolerance', 0.02)
         self.i_raw = None
         self.i_diff_from_init = None
+        self.i_diff_queue = []
+        self.i_tms_queue = []
 
         self.pub_i_calib = rospy.Publisher(
             '~output', IntensityProxCalibInfoArray,
@@ -42,13 +45,17 @@ class IntensityProxCalibrator(object):
             '~set_init_proximities', Trigger, self._set_init_proximities)
 
     def _intensity_cb(self, msg):
-        self.i_last_tms = [p.header.stamp for p in msg.proximities]
         self.i_raw = np.array([p.proximity.proximity for p in msg.proximities])
         if self.i_init is None:
             rospy.logwarn_throttle(10, 'Init prox is not set, so skipping')
             return
         assert self.i_raw.shape == self.i_init.shape
         self.i_diff_from_init = self.i_raw - self.i_init
+        self.i_diff_queue.append(self.i_diff_from_init)
+        self.i_tms_queue.append([p.header.stamp for p in msg.proximities])
+        while len(self.i_diff_queue) > self.i_queue_size_for_tof:
+            self.i_diff_queue.pop(0)
+            self.i_tms_queue.pop(0)
         if self.i_prop_const is None:
             rospy.logwarn_throttle(10, 'Prop const is not set, so skipping')
             return
@@ -82,23 +89,24 @@ class IntensityProxCalibrator(object):
                 10, 'Prox diff_from_init is not set, so skipping')
             return
         assert len(self.i_diff_from_init) == len(msg.array)
-        assert len(msg.array) == len(self.i_last_tms)
         if self.i_height_from_tof is None:
             self.i_height_from_tof = [0.0] * len(msg.array)
         if self.i_prop_const is None:
             self.i_prop_const = np.zeros(len(msg.array))
         for i, data_st in enumerate(msg.array):
-            if abs((data_st.header.stamp - self.i_last_tms[i]).to_sec()) > \
-               self.i_tof_tm_tolerance:
-                continue
-            if self.i_diff_from_init[i] < self.i_valid_min:
-                continue
-            tof_r = data_st.data.range_millimeter
-            if tof_r < self.tof_valid_min:
-                continue
-            if tof_r > self.i_valid_max_dist + self.i_height_from_tof[i]:
-                continue
-            self.i_prop_const[i] = self.i_diff_from_init[i] * (tof_r ** 2)
+            for i_diff, i_tms in zip(self.i_diff_queue, self.i_tms_queue):
+                if abs((data_st.header.stamp - i_tms[i]).to_sec() -
+                       self.tof_delay_from_i) > \
+                   self.tof_tm_tolerance:
+                    continue
+                if i_diff[i] < self.i_valid_min:
+                    continue
+                tof_r = data_st.data.range_millimeter
+                if tof_r < self.tof_valid_min:
+                    continue
+                if tof_r > self.i_valid_max_dist + self.i_height_from_tof[i]:
+                    continue
+                self.i_prop_const[i] = i_diff[i] * (tof_r ** 2)
 
     def _set_init_proximities(self, req):
         is_success = True
