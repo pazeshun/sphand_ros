@@ -29,6 +29,11 @@
     <node name="joint_trajectory_controller_spawner" pkg="controller_manager" type="spawner" respawn="false" output="screen" unless="$(arg gazebo)"
           args="vacuum_gripper
                 hand" />
+
+    <node name="intensity_prox_calibrator" pkg="sphand_driver" type="intensity_prox_calibrator.py" output="screen">
+      <remap from="~input/intensity" to="intensity_proximities"/>
+      <remap from="~input/tof" to="tof_proximities"/>
+    </node>
   </group>
 
   <!-- right gripper -->
