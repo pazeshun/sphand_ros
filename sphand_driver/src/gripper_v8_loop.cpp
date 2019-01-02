@@ -610,6 +610,11 @@ private:
   I2cSensorDriver i2c_sen_;
   ros::Publisher intensity_prox_pub_;
   ros::Publisher tof_prox_pub_;
+  int cnt_for_i2c_init_;
+  enum
+  {
+    I2C_INIT_SKIP_CNT = 50,
+  };
 
   // For multi-threaded spinning
   boost::shared_ptr<ros::AsyncSpinner> subscriber_spinner_;
@@ -629,6 +634,7 @@ public:
     , i2c_sen_(i2c_mux)
     , pad_lim_conf_(pad_lim_conf)
     , is_gripper_enabled_(true)
+    , cnt_for_i2c_init_(0)
   {
     // Register actuator interfaces to transmission loader
     actr_curr_pos_.resize(actr_names_.size(), 0);
@@ -731,7 +737,9 @@ public:
     pressure_pub_ = nh_.advertise<std_msgs::Float64>("pressure/state", 1);
 
     // Initialize proximity sensor
-    i2c_sen_.init();
+    // FIXME: Initializing sensor here spends much time and causes the following error from dynamixel controller:
+    //        ValueError: cannot convert float NaN to integer
+    // i2c_sen_.init();
     intensity_prox_pub_ = nh_.advertise<sphand_driver::ProximityStampedArray>("intensity_proximities", 1);
     tof_prox_pub_ = nh_.advertise<vl53l0x_mraa_ros::RangingMeasurementDataStampedArray>("tof_proximities", 1);
 
@@ -771,9 +779,22 @@ public:
     // Get and publish proximity
     sphand_driver::ProximityStampedArray intensity_array;
     vl53l0x_mraa_ros::RangingMeasurementDataStampedArray tof_array;
-    i2c_sen_.getProximityArrays(&intensity_array, &tof_array);
-    intensity_prox_pub_.publish(intensity_array);
-    tof_prox_pub_.publish(tof_array);
+    // FIXME: Temporarily initialize sensor here to avoid dynamixel error
+    //        Some skips are needed
+    if (cnt_for_i2c_init_ >= I2C_INIT_SKIP_CNT)
+    {
+      if (cnt_for_i2c_init_ == I2C_INIT_SKIP_CNT)
+      {
+        i2c_sen_.init();
+      }
+      i2c_sen_.getProximityArrays(&intensity_array, &tof_array);
+      intensity_prox_pub_.publish(intensity_array);
+      tof_prox_pub_.publish(tof_array);
+    }
+    if (cnt_for_i2c_init_ <= I2C_INIT_SKIP_CNT)
+    {
+      cnt_for_i2c_init_++;
+    }
 
     // Update actuator current state
     for (int i = 0; i < actr_names_.size(); i++)
