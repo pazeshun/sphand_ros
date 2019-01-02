@@ -4,7 +4,7 @@ from dynamixel_controllers.joint_position_controller import (
     JointPositionController,
 )
 from dynamixel_msgs.msg import MotorStateList
-from sphand_driver.msg import (
+from sphand_driver_msgs.msg import (
     CalibJointAction,
     CalibJointResult,
 )

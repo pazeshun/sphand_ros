@@ -26,7 +26,7 @@
 #include <dynamixel_controllers/TorqueEnable.h>
 #include <dynamixel_msgs/JointState.h>
 #include <force_proximity_ros/ProximityStamped.h>
-#include <sphand_driver/ProximityStampedArray.h>
+#include <sphand_driver_msgs/ProximityStampedArray.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/Float64.h>
 #include <std_msgs/UInt16.h>
@@ -491,7 +491,7 @@ public:
     return true;
   }
 
-  void getProximityArrays(sphand_driver::ProximityStampedArray* intensity_array,
+  void getProximityArrays(sphand_driver_msgs::ProximityStampedArray* intensity_array,
                           vl53l0x_mraa_ros::RangingMeasurementDataStampedArray* tof_array)
   {
     // Start intensity sensing
@@ -740,7 +740,7 @@ public:
     // FIXME: Initializing sensor here spends much time and causes the following error from dynamixel controller:
     //        ValueError: cannot convert float NaN to integer
     // i2c_sen_.init();
-    intensity_prox_pub_ = nh_.advertise<sphand_driver::ProximityStampedArray>("intensity_proximities", 1);
+    intensity_prox_pub_ = nh_.advertise<sphand_driver_msgs::ProximityStampedArray>("intensity_proximities", 1);
     tof_prox_pub_ = nh_.advertise<vl53l0x_mraa_ros::RangingMeasurementDataStampedArray>("tof_proximities", 1);
 
     // Initialize flex sensor
@@ -777,7 +777,7 @@ public:
     }
 
     // Get and publish proximity
-    sphand_driver::ProximityStampedArray intensity_array;
+    sphand_driver_msgs::ProximityStampedArray intensity_array;
     vl53l0x_mraa_ros::RangingMeasurementDataStampedArray tof_array;
     // FIXME: Temporarily initialize sensor here to avoid dynamixel error
     //        Some skips are needed

@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   hardware_interface
   message_generation
   roscpp
+  sphand_driver_msgs
   std_msgs
   transmission_interface
   vl53l0x_mraa_ros
@@ -26,28 +27,6 @@ if(NOT "${mraa_FOUND}")
 endif()
 
 catkin_python_setup()
-
-################################################
-## Declare ROS messages, services and actions ##
-################################################
-
-add_message_files(
-  FILES
-  IntensityProxCalibInfo.msg
-  IntensityProxCalibInfoArray.msg
-  ProximityStampedArray.msg
-)
-
-add_action_files(
-  FILES
-  CalibJoint.action
-)
-
-generate_messages(
-  DEPENDENCIES
-  actionlib_msgs
-  force_proximity_ros
-)
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -72,6 +51,7 @@ if(${mraa_FOUND})
     hardware_interface
     message_runtime
     roscpp
+    sphand_driver_msgs
     std_msgs
     transmission_interface
     vl53l0x_mraa_ros
@@ -90,6 +70,7 @@ else()
     hardware_interface
     message_runtime
     roscpp
+    sphand_driver_msgs
     std_msgs
     transmission_interface
     vl53l0x_mraa_ros

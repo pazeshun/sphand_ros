@@ -2,9 +2,9 @@
 
 import numpy as np
 
-from sphand_driver.msg import IntensityProxCalibInfo
-from sphand_driver.msg import IntensityProxCalibInfoArray
-from sphand_driver.msg import ProximityStampedArray
+from sphand_driver_msgs.msg import IntensityProxCalibInfo
+from sphand_driver_msgs.msg import IntensityProxCalibInfoArray
+from sphand_driver_msgs.msg import ProximityStampedArray
 from vl53l0x_mraa_ros.msg import RangingMeasurementDataStampedArray
 from std_srvs.srv import Trigger
 from std_srvs.srv import TriggerResponse
