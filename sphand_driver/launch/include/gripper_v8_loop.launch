@@ -33,6 +33,9 @@
     <node name="intensity_prox_calibrator" pkg="sphand_driver" type="intensity_prox_calibrator.py" output="screen">
       <remap from="~input/intensity" to="intensity_proximities"/>
       <remap from="~input/tof" to="tof_proximities"/>
+      <rosparam>
+        i_height_from_tof: [6.0, 6.0, 6.0, 6.0, 0.0, 0.0, 0.0, 0.0]
+      </rosparam>
     </node>
   </group>
 

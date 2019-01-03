@@ -90,7 +90,7 @@ class IntensityProxCalibrator(object):
             return
         assert len(self.i_diff_from_init) == len(msg.array)
         if self.i_height_from_tof is None:
-            self.i_height_from_tof = [0.0] * len(msg.array)
+            self.i_height_from_tof = np.zeros(len(msg.array))
         if self.i_prop_const is None:
             self.i_prop_const = np.zeros(len(msg.array))
         for i, data_st in enumerate(msg.array):
@@ -106,7 +106,8 @@ class IntensityProxCalibrator(object):
                     continue
                 if tof_r > self.i_valid_max_dist + self.i_height_from_tof[i]:
                     continue
-                self.i_prop_const[i] = i_diff[i] * (tof_r ** 2)
+                self.i_prop_const[i] = \
+                    i_diff[i] * ((tof_r - self.i_height_from_tof[i]) ** 2)
 
     def _set_init_proximities(self, req):
         is_success = True
