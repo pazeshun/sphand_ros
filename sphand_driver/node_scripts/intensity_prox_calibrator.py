@@ -29,6 +29,7 @@ class IntensityProxCalibrator(object):
         self.tof_valid_min = rospy.get_param('~tof_valid_min', 40)
         self.tof_delay_from_i = rospy.get_param('~tof_delay_from_i', 0.0)
         self.tof_tm_tolerance = rospy.get_param('~tof_tm_tolerance', 0.02)
+        self.use_i_average = rospy.get_param('~use_i_average', False)
         self.i_raw = None
         self.i_diff_from_init = None
         self.i_diff_queue = []
@@ -45,7 +46,12 @@ class IntensityProxCalibrator(object):
             '~set_init_proximities', Trigger, self._set_init_proximities)
 
     def _intensity_cb(self, msg):
-        self.i_raw = np.array([p.proximity.proximity for p in msg.proximities])
+        if self.use_i_average:
+            self.i_raw = np.array([p.proximity.average
+                                   for p in msg.proximities])
+        else:
+            self.i_raw = np.array([p.proximity.proximity
+                                   for p in msg.proximities])
         if self.i_init_value is None:
             rospy.logwarn_throttle(10, 'Init prox is not set, so skipping')
             return

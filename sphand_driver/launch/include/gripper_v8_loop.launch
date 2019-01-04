@@ -35,6 +35,7 @@
       <remap from="~input/tof" to="tof_proximities"/>
       <rosparam>
         i_height_from_tof: [6.0, 6.0, 6.0, 6.0, 0.0, 0.0, 0.0, 0.0]
+        use_i_average: true
       </rosparam>
     </node>
   </group>
