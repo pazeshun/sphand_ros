@@ -17,9 +17,9 @@ class IntensityProxCalibrator(object):
         self.i_prop_const = rospy.get_param('~i_prop_const', None)
         if self.i_prop_const is not None:
             self.i_prop_const = np.array(self.i_prop_const)
-        self.i_init = rospy.get_param('~i_init', None)
-        if self.i_init is not None:
-            self.i_init = np.array(self.i_init)
+        self.i_init_value = rospy.get_param('~i_init_value', None)
+        if self.i_init_value is not None:
+            self.i_init_value = np.array(self.i_init_value)
         self.i_valid_min = rospy.get_param('~i_valid_min', 50)
         self.i_valid_max_dist = rospy.get_param('~i_valid_max_dist', 60)
         self.i_height_from_tof = rospy.get_param('~i_height_from_tof', None)
@@ -46,11 +46,11 @@ class IntensityProxCalibrator(object):
 
     def _intensity_cb(self, msg):
         self.i_raw = np.array([p.proximity.proximity for p in msg.proximities])
-        if self.i_init is None:
+        if self.i_init_value is None:
             rospy.logwarn_throttle(10, 'Init prox is not set, so skipping')
             return
-        assert self.i_raw.shape == self.i_init.shape
-        self.i_diff_from_init = self.i_raw - self.i_init
+        assert self.i_raw.shape == self.i_init_value.shape
+        self.i_diff_from_init = self.i_raw - self.i_init_value
         self.i_diff_queue.append(self.i_diff_from_init)
         self.i_tms_queue.append([p.header.stamp for p in msg.proximities])
         while len(self.i_diff_queue) > self.i_queue_size_for_tof:
@@ -73,13 +73,13 @@ class IntensityProxCalibrator(object):
                                               distance,
                                               self.i_diff_from_init,
                                               self.i_prop_const,
-                                              self.i_init):
+                                              self.i_init_value):
             info = IntensityProxCalibInfo()
             info.header.stamp = p.header.stamp
             info.distance = dist
             info.diff_from_init = diff
             info.prop_const = const
-            info.init = init
+            info.init_value = init
             pub_msg.data.append(info)
         self.pub_i_calib.publish(pub_msg)
 
@@ -112,7 +112,7 @@ class IntensityProxCalibrator(object):
     def _set_init_proximities(self, req):
         is_success = True
         if self.i_raw is not None:
-            self.i_init = self.i_raw.copy()
+            self.i_init_value = self.i_raw.copy()
         else:
             is_success = False
         return TriggerResponse(success=is_success)
