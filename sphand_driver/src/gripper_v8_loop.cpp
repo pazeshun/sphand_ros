@@ -27,6 +27,7 @@
 #include <dynamixel_msgs/JointState.h>
 #include <force_proximity_ros/ProximityStamped.h>
 #include <sphand_driver_msgs/ProximityStampedArray.h>
+#include <sphand_driver_msgs/TurnOffSensors.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/Float64.h>
 #include <std_msgs/UInt16.h>
@@ -427,6 +428,8 @@ private:
   // FIXME: If using std::vector, node is shut down when Vl53l0xMraa::begin() is called
   int update_tof_no;
   vl53l0x_mraa_ros::RangingMeasurementDataStampedArray current_tof_array;
+  std::vector<uint64_t> i_turned_off_;
+  std::vector<uint64_t> tof_turned_off_;
 
 public:
   I2cSensorDriver(const std::vector<std::vector<std::map<std::string, int> > > i2c_mux, const int i2c_bus = 0)
@@ -495,20 +498,34 @@ public:
                           vl53l0x_mraa_ros::RangingMeasurementDataStampedArray* tof_array)
   {
     // Start intensity sensing
+    int prev_sen_no = -1;
     for (int sensor_no = 0; sensor_no < i2c_mux_.size(); sensor_no++)
     {
-      if (sensor_no == 0)
+      if (std::find(i_turned_off_.begin(), i_turned_off_.end(), sensor_no) != i_turned_off_.end())
+      {
+        continue;
+      }
+      if (prev_sen_no < 0)
       {
         setMultiplexers(i2c_mux_[sensor_no]);
       }
       else
       {
-        setMultiplexers(i2c_mux_[sensor_no], i2c_mux_[sensor_no - 1]);
+        setMultiplexers(i2c_mux_[sensor_no], i2c_mux_[prev_sen_no]);
       }
       vcnl4040_array[sensor_no].startSensing();
+      prev_sen_no = sensor_no;
     }
 
     // Fill necessary data of proximity
+    while (std::find(tof_turned_off_.begin(), tof_turned_off_.end(), update_tof_no) != tof_turned_off_.end())
+    {
+      update_tof_no++;
+      if (update_tof_no >= i2c_mux_.size())
+      {
+        update_tof_no = 0;
+      }
+    }
     intensity_array->proximities.clear();
     tof_array->array.clear();
     force_proximity_ros::ProximityStamped intensity_st;
@@ -558,6 +575,32 @@ public:
     // Record time of reading last sensor
     intensity_array->header.stamp = intensity_st.header.stamp;
     tof_array->header.stamp = tof_data_st.header.stamp;
+  }
+
+  bool turnOffIntensity(const std::vector<uint64_t> i_turned_off)
+  {
+    for (int i = 0; i < i_turned_off.size(); i++)
+    {
+      if (i_turned_off[i] < 0 || i2c_mux_.size() <= i_turned_off[i])
+      {
+        return false;
+      }
+    }
+    i_turned_off_ = i_turned_off;
+    return true;
+  }
+
+  bool turnOffTof(const std::vector<uint64_t> tof_turned_off)
+  {
+    for (int i = 0; i < tof_turned_off.size(); i++)
+    {
+      if (tof_turned_off[i] < 0 || i2c_mux_.size() <= tof_turned_off[i])
+      {
+        return false;
+      }
+    }
+    tof_turned_off_ = tof_turned_off;
+    return true;
   }
 };  // end class I2cSensorDriver
 
@@ -615,6 +658,8 @@ private:
   {
     I2C_INIT_SKIP_CNT = 50,
   };
+  ros::ServiceServer turn_off_i_srv_;
+  ros::ServiceServer turn_off_tof_srv_;
 
   // For multi-threaded spinning
   boost::shared_ptr<ros::AsyncSpinner> subscriber_spinner_;
@@ -742,6 +787,8 @@ public:
     // i2c_sen_.init();
     intensity_prox_pub_ = nh_.advertise<sphand_driver_msgs::ProximityStampedArray>("intensity_proximities", 1);
     tof_prox_pub_ = nh_.advertise<vl53l0x_mraa_ros::RangingMeasurementDataStampedArray>("tof_proximities", 1);
+    turn_off_i_srv_ = nh_.advertiseService("turn_off_intensity", &GripperLoop::turnOffIntensity, this);
+    turn_off_tof_srv_ = nh_.advertiseService("turn_off_tof", &GripperLoop::turnOffTof, this);
 
     // Initialize flex sensor
     for (int i = 0; i < flex_names_.size(); i++)
@@ -895,6 +942,36 @@ public:
   void robotStateCallback(const baxter_core_msgs::AssemblyStateConstPtr& state)
   {
     is_gripper_enabled_ = state->enabled;
+  }
+
+  bool turnOffIntensity(sphand_driver_msgs::TurnOffSensors::Request& req,
+                        sphand_driver_msgs::TurnOffSensors::Response& res)
+  {
+    if (i2c_sen_.turnOffIntensity(req.sensor_ids))
+    {
+      res.success = true;
+    }
+    else
+    {
+      res.success = false;
+      res.message = "Specified sensor id doesn't exist";
+    }
+    return true;
+  }
+
+  bool turnOffTof(sphand_driver_msgs::TurnOffSensors::Request& req,
+                  sphand_driver_msgs::TurnOffSensors::Response& res)
+  {
+    if (i2c_sen_.turnOffTof(req.sensor_ids))
+    {
+      res.success = true;
+    }
+    else
+    {
+      res.success = false;
+      res.message = "Specified sensor id doesn't exist";
+    }
+    return true;
   }
 };  // end class GripperLoop
 

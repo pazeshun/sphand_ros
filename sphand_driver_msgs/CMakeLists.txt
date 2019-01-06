@@ -18,6 +18,11 @@ add_message_files(
   ProximityStampedArray.msg
 )
 
+add_service_files(
+  FILES
+  TurnOffSensors.srv
+)
+
 add_action_files(
   FILES
   CalibJoint.action
