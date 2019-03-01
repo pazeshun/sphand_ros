@@ -42,6 +42,7 @@
   <run_depend>dynamixel_controllers</run_depend>
   <run_depend>dynamixel_msgs</run_depend>
   <run_depend>force_proximity_ros</run_depend>
+  <run_depend>geometry_msgs</run_depend>
   <run_depend>hardware_interface</run_depend>
   <run_depend>joint_state_controller</run_depend>
   <run_depend>jsk_arc2017_baxter</run_depend>
