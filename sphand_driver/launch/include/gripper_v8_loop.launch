@@ -51,8 +51,8 @@
     <node name="force_estimator" pkg="sphand_driver" type="force_estimator.py" output="screen">
       <remap from="~input" to="intensity_prox_calibrator/output"/>
       <rosparam>
-        rubber_thickness: [4.5, 4.5, 4.5, 4.5, 7.0, 7.0, 7.0, 7.0]
-        rubber_stiffness: [12.8, 12.8, 12.8, 12.8, 12.8, 12.8, 12.8, 12.8]
+        rubber_thickness: [4.5, 4.5, 4.5, 4.5, 6.6, 6.6, 6.6, 6.6]
+        rubber_stiffness: [17.6, 17.6, 17.6, 17.6, 17.6, 17.6, 17.6, 17.6]
       </rosparam>
     </node>
   </group>
