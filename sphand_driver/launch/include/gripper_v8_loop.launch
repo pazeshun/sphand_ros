@@ -30,9 +30,15 @@
           args="vacuum_gripper
                 hand" />
 
+    <node name="tof_average" pkg="sphand_driver" type="tof_average.py" output="screen">
+      <remap from="~input" to="tof_proximities"/>
+      <rosparam>
+        queue_size: 10
+      </rosparam>
+    </node>
     <node name="intensity_prox_calibrator" pkg="sphand_driver" type="intensity_prox_calibrator.py" output="screen">
       <remap from="~input/intensity" to="intensity_proximities"/>
-      <remap from="~input/tof" to="tof_proximities"/>
+      <remap from="~input/tof" to="tof_average/output"/>
       <rosparam>
         i_height_from_tof: [6.0, 6.0, 6.0, 6.0, 0.0, 0.0, 0.0, 0.0]
         use_i_average: true
