@@ -402,9 +402,9 @@ public:
     // Set PS_CONF3 and PS_MS
     uint8_t conf3 = 0x00;
     // uint8_t ms = 0x00;  // IR LED current to 50mA
-    uint8_t ms = 0x01;  // IR LED current to 75mA
+    // uint8_t ms = 0x01;  // IR LED current to 75mA
     // uint8_t ms = 0x02;  // IR LED current to 100mA
-    // uint8_t ms = 0x06;  // IR LED current to 180mA
+    uint8_t ms = 0x06;  // IR LED current to 180mA
     // uint8_t ms = 0x07;  // IR LED current to 200mA
     return (writeCommandRegister(PS_CONF3, conf3, ms) == mraa::SUCCESS);
   }
