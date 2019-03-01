@@ -42,6 +42,10 @@
       <rosparam>
         i_height_from_tof: [6.0, 6.0, 6.0, 6.0, 0.0, 0.0, 0.0, 0.0]
         use_i_average: true
+        i_valid_min: 20
+        i_valid_max: 1000
+        i_valid_max_dist: 60
+        tof_valid_min: 45
       </rosparam>
     </node>
   </group>
