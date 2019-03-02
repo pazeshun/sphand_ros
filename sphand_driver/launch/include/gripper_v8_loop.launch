@@ -46,6 +46,7 @@
         i_valid_max: 1000
         i_valid_max_dist: 60
         tof_valid_min: 45
+        rubber_thickness: [4.5, 4.5, 4.5, 4.5, 5.67, 5.67, 5.67, 5.67]
       </rosparam>
     </node>
     <node name="force_estimator" pkg="sphand_driver" type="force_estimator.py" output="screen">
