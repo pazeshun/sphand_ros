@@ -31,6 +31,9 @@ class IntensityProxCalibrator(object):
         self.tof_delay_from_i = rospy.get_param('~tof_delay_from_i', 0.0)
         self.tof_tm_tolerance = rospy.get_param('~tof_tm_tolerance', 0.02)
         self.use_i_average = rospy.get_param('~use_i_average', False)
+        self.rubber_t = rospy.get_param('~rubber_thickness', None)
+        if self.rubber_t is not None:
+            self.rubber_t = np.array(self.rubber_t)
         self.i_raw = None
         self.i_diff_from_init = None
         self.i_diff_queue = []
@@ -72,6 +75,14 @@ class IntensityProxCalibrator(object):
         diff_plus[diff_plus <= 0] = np.inf
         distance = np.sqrt(self.i_prop_const / diff_plus)
         distance[distance == 0] = np.inf
+
+        # If distance is under thickness
+        init_const = self.i_init_value * (self.rubber_t ** 2)
+        distance = np.where(
+            distance < self.rubber_t,
+            np.sqrt((self.i_prop_const + init_const) / self.i_raw),
+            distance
+        )
 
         # Publish calibrated info
         pub_msg = IntensityProxCalibInfoArray()
