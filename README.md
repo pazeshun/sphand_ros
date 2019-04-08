@@ -79,10 +79,36 @@ sudo vi /etc/ntp.conf
 
 ### Setup auto launching
 
+**CAUTION**
+The following procedure assumes that the output of `i2cdetect` includes string "no" when I<sup>2</sup>C interface is correctly recognized.
+Otherwise, UP Board will reboot infinitely.
+Check `i2cdetect` before running this script.
+
 ```bash
 sudo apt-get install supervisor
 rosrun sphand_driver create_supervisor_conf
 sudo service supervisor restart
+```
+
+\* Intended output of `i2cdetect`:
+```bash
+$ i2cdetect -F 1
+Functionalities implemented by /dev/i2c-1:
+I2C                              yes
+SMBus Quick Command              no
+SMBus Send Byte                  yes
+SMBus Receive Byte               yes
+SMBus Write Byte                 yes
+SMBus Read Byte                  yes
+SMBus Write Word                 yes
+SMBus Read Word                  yes
+SMBus Process Call               no
+SMBus Block Write                no
+SMBus Block Read                 no
+SMBus Block Process Call         no
+SMBus PEC                        no
+I2C Block Write                  yes
+I2C Block Read                   yes
 ```
 
 ## Usage
