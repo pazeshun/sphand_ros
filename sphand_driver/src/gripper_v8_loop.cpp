@@ -297,6 +297,7 @@ private:
     PS_CONF1 = 0x03,
     PS_CONF3 = 0x04,
     PS_DATA_L = 0x08,
+    ID_L = 0x0C,
   };
   mraa::I2c* i2c_;
   uint8_t i2c_addr_;
@@ -339,11 +340,21 @@ public:
     return i2c_->writeWordReg(command_code, data);
   }
 
+  bool ping()
+  {
+    return (readCommandRegister(ID_L) == 0x0186);
+  }
+
   // Configure VCNL4040
-  void init(mraa::I2c* i2c, const uint8_t i2c_addr)
+  bool init(mraa::I2c* i2c, const uint8_t i2c_addr)
   {
     i2c_ = i2c;
     i2c_addr_ = i2c_addr;
+
+    if (!ping())
+    {
+      return false;
+    }
 
     // Set PS_CONF3 and PS_MS
     uint8_t conf3 = 0x00;
@@ -353,6 +364,8 @@ public:
     // uint8_t ms = 0x06;  // IR LED current to 180mA
     // uint8_t ms = 0x07;  // IR LED current to 200mA
     writeCommandRegister(PS_CONF3, conf3, ms);
+
+    return true;
   }
 
   void startSensing()
@@ -483,12 +496,36 @@ public:
       {
         setMultiplexers(i2c_mux_[sensor_no], i2c_mux_[sensor_no - 1]);
       }
-      vcnl4040_array[sensor_no].init(&i2c_, VCNL4040_ADDR);
-      if(!vl53l0x_array[sensor_no].begin(&i2c_, false, VL53L0X_ADDR))
+      if (!vcnl4040_array[sensor_no].init(&i2c_, VCNL4040_ADDR))
+      {
+        ROS_FATAL("Failed to ping VCNL4040 No.%d", sensor_no);
+      }
+      if (!vl53l0x_array[sensor_no].begin(&i2c_, false, VL53L0X_ADDR))
       {
         ROS_FATAL("Failed to boot VL53L0X No.%d", sensor_no);
       }
       vl53l0x_array[sensor_no].setMeasurementTimingBudget(20000);
+    }
+
+    return true;
+  }
+
+  bool resetTof()
+  {
+    for (int sensor_no = 0; sensor_no < i2c_mux_.size(); sensor_no++)
+    {
+      if (sensor_no == 0)
+      {
+        setMultiplexers(i2c_mux_[sensor_no]);
+      }
+      else
+      {
+        setMultiplexers(i2c_mux_[sensor_no], i2c_mux_[sensor_no - 1]);
+      }
+      if (!vl53l0x_array[sensor_no].resetDevice())
+      {
+        ROS_FATAL("Failed to reset VL53L0X No.%d", sensor_no);
+      }
     }
 
     return true;
@@ -542,15 +579,73 @@ public:
         setMultiplexers(i2c_mux_[sensor_no], i2c_mux_[sensor_no - 1]);
       }
 
+      bool is_i2c_error = false;
       // Intensity
-      vcnl4040_array[sensor_no].getProximityStamped(&intensity_st);
+      do
+      {
+        try
+        {
+          if (is_i2c_error)
+          {
+            // If begin() in init() has once been called against unconnected VL53L0X,
+            // begin() sometimes fails to reconnect with VL53L0X.
+            // range_status in the sensor response becomes unexpected value.
+            // Calling resetTof() before begin() prevents it.
+            // resetTof() loops until VL53L0X is reconnected.
+            resetTof();
+            init();
+            ROS_INFO("Re-initialized all I2C sensors");
+            setMultiplexers(i2c_mux_[sensor_no]);
+          }
+          vcnl4040_array[sensor_no].getProximityStamped(&intensity_st);
+          is_i2c_error = false;
+        }
+        catch (std::invalid_argument& err)
+        {
+          if (!is_i2c_error)
+          {
+            ROS_ERROR("Failed to read data of VCNL4040 No.%d", sensor_no);
+            ROS_ERROR("Try to re-initialize all I2C sensors");
+          }
+          is_i2c_error = true;
+        }
+      } while (is_i2c_error);
       vcnl4040_array[sensor_no].stopSensing();
       intensity_array->proximities.push_back(intensity_st);
 
       // ToF
+      is_i2c_error = false;
       if (sensor_no == update_tof_no)
       {
-        vl53l0x_array[sensor_no].getSingleRangingMeasurementFast(&tof_data);
+        do
+        {
+          try
+          {
+            if (is_i2c_error)
+            {
+              // If begin() in init() has once been called against unconnected VL53L0X,
+              // begin() sometimes fails to reconnect with VL53L0X.
+              // range_status in the sensor response becomes unexpected value.
+              // Calling resetTof() before begin() prevents it.
+              // resetTof() loops until VL53L0X is reconnected.
+              resetTof();
+              init();
+              ROS_INFO("Re-initialized all I2C sensors");
+              setMultiplexers(i2c_mux_[sensor_no]);
+            }
+            vl53l0x_array[sensor_no].getSingleRangingMeasurementFast(&tof_data);
+            is_i2c_error = false;
+          }
+          catch (std::invalid_argument& err)
+          {
+            if (!is_i2c_error)
+            {
+              ROS_ERROR("Failed to read data of VL53L0X No.%d", sensor_no);
+              ROS_ERROR("Try to re-initialize all I2C sensors");
+            }
+            is_i2c_error = true;
+          }
+        } while (is_i2c_error);
         tof_data_st.header.stamp = ros::Time::now();
         tof_data_st.data.timestamp = tof_data.TimeStamp;
         tof_data_st.data.measurement_time_usec = tof_data.MeasurementTimeUsec;
