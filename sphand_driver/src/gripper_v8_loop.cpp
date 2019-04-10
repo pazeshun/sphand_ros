@@ -691,6 +691,11 @@ public:
               setMultiplexers(i2c_mux_[sensor_no]);
             }
             vl53l0x_array[sensor_no].getSingleRangingMeasurementFast(&tof_data);
+            if (tof_data.RangeStatus > 5)
+            {
+              ROS_ERROR("Odd RangeStatus: %d from VL53L0X No.%d", tof_data.RangeStatus, sensor_no);
+              throw std::invalid_argument();
+            }
             is_i2c_error = false;
           }
           catch (std::invalid_argument& err)
