@@ -522,9 +522,17 @@ public:
       {
         setMultiplexers(i2c_mux_[sensor_no], i2c_mux_[sensor_no - 1]);
       }
-      if (!vl53l0x_array[sensor_no].resetDevice())
+      try
+      {
+        if (!vl53l0x_array[sensor_no].resetDevice())
+        {
+          throw std::invalid_argument();
+        }
+      }
+      catch (std::invalid_argument& err)
       {
         ROS_FATAL("Failed to reset VL53L0X No.%d", sensor_no);
+        return false;
       }
     }
 
@@ -592,7 +600,10 @@ public:
             // range_status in the sensor response becomes unexpected value.
             // Calling resetTof() before begin() prevents it.
             // resetTof() loops until VL53L0X is reconnected.
-            resetTof();
+            if (!resetTof())
+            {
+              throw std::invalid_argument();
+            }
             init();
             ROS_INFO("Re-initialized all I2C sensors");
             setMultiplexers(i2c_mux_[sensor_no]);
@@ -628,7 +639,10 @@ public:
               // range_status in the sensor response becomes unexpected value.
               // Calling resetTof() before begin() prevents it.
               // resetTof() loops until VL53L0X is reconnected.
-              resetTof();
+              if (!resetTof())
+              {
+                throw std::invalid_argument();
+              }
               init();
               ROS_INFO("Re-initialized all I2C sensors");
               setMultiplexers(i2c_mux_[sensor_no]);
