@@ -502,7 +502,7 @@ public:
       {
         if (!vcnl4040_array[sensor_no].init(&i2c_, VCNL4040_ADDR))
         {
-          throw std::invalid_argument();
+          throw std::invalid_argument("");
         }
       }
       catch (std::invalid_argument& err)
@@ -516,7 +516,7 @@ public:
       {
         if (!vl53l0x_array[sensor_no].begin(&i2c_, false, VL53L0X_ADDR))
         {
-          throw std::invalid_argument();
+          throw std::invalid_argument("");
         }
       }
       catch (std::invalid_argument& err)
@@ -527,7 +527,7 @@ public:
         {
           if (!vl53l0x_array[sensor_no].resetDevice())
           {
-            throw std::invalid_argument();
+            throw std::invalid_argument("");
           }
         }
         catch (std::invalid_argument& err)
@@ -540,7 +540,7 @@ public:
         {
           if (!vl53l0x_array[sensor_no].begin(&i2c_, false, VL53L0X_ADDR))
           {
-            throw std::invalid_argument();
+            throw std::invalid_argument("");
           }
         }
         catch (std::invalid_argument& err)
@@ -571,7 +571,7 @@ public:
       {
         if (!vl53l0x_array[sensor_no].resetDevice())
         {
-          throw std::invalid_argument();
+          throw std::invalid_argument("");
         }
       }
       catch (std::invalid_argument& err)
@@ -647,7 +647,7 @@ public:
             // resetTof() loops until VL53L0X is reconnected.
             if (!resetTof() || !init())
             {
-              throw std::invalid_argument();
+              throw std::invalid_argument("");
             }
             ROS_INFO("Re-initialized all I2C sensors");
             setMultiplexers(i2c_mux_[sensor_no]);
@@ -685,7 +685,7 @@ public:
               // resetTof() loops until VL53L0X is reconnected.
               if (!resetTof() || !init())
               {
-                throw std::invalid_argument();
+                throw std::invalid_argument("");
               }
               ROS_INFO("Re-initialized all I2C sensors");
               setMultiplexers(i2c_mux_[sensor_no]);
@@ -694,7 +694,7 @@ public:
             if (tof_data.RangeStatus > 5)
             {
               ROS_ERROR("Odd RangeStatus: %d from VL53L0X No.%d", tof_data.RangeStatus, sensor_no);
-              throw std::invalid_argument();
+              throw std::invalid_argument("");
             }
             is_i2c_error = false;
           }
