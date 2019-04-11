@@ -535,6 +535,7 @@ public:
           ROS_FATAL("Failed to reset VL53L0X No.%d", sensor_no);
           return false;
         }
+        ROS_INFO("Reset VL53L0X No.%d", sensor_no);
         // Reboot VL53L0X
         try
         {
@@ -548,6 +549,7 @@ public:
           ROS_FATAL("Failed to reboot VL53L0X No.%d", sensor_no);
           return false;
         }
+        ROS_INFO("Rebooted VL53L0X No.%d", sensor_no);
       }
       vl53l0x_array[sensor_no].setMeasurementTimingBudget(20000);
     }
@@ -690,13 +692,13 @@ public:
               ROS_INFO("Re-initialized all I2C sensors");
               setMultiplexers(i2c_mux_[sensor_no]);
             }
+            is_i2c_error = false;
             vl53l0x_array[sensor_no].getSingleRangingMeasurementFast(&tof_data);
             if (tof_data.RangeStatus > 5)
             {
               ROS_ERROR("Odd RangeStatus: %d from VL53L0X No.%d", tof_data.RangeStatus, sensor_no);
               throw std::invalid_argument("");
             }
-            is_i2c_error = false;
           }
           catch (std::invalid_argument& err)
           {
