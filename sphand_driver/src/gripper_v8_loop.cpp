@@ -646,7 +646,6 @@ public:
             // begin() sometimes fails to reconnect with VL53L0X.
             // range_status in the sensor response becomes unexpected value.
             // Calling resetTof() before begin() prevents it.
-            // resetTof() loops until VL53L0X is reconnected.
             if (!resetTof() || !init())
             {
               throw std::invalid_argument("");
@@ -684,7 +683,6 @@ public:
               // begin() sometimes fails to reconnect with VL53L0X.
               // range_status in the sensor response becomes unexpected value.
               // Calling resetTof() before begin() prevents it.
-              // resetTof() loops until VL53L0X is reconnected.
               if (!resetTof() || !init())
               {
                 throw std::invalid_argument("");
