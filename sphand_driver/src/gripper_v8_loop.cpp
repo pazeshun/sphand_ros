@@ -67,10 +67,22 @@ public:
     uint8_t tx[2];
     tx[0] = 0xF5 & 0x7F;
     tx[1] = 0x20;
-    spi_.write(tx, 2);
+    uint8_t* recv = spi_.write(tx, 2);
+    if (recv == NULL)
+    {
+      free(recv);
+      throw std::invalid_argument("Error in mraa::Spi::write");
+    }
+    free(recv);
     tx[0] = 0xF4 & 0x7F;
     tx[1] = 0x27;
-    spi_.write(tx, 2);
+    recv = spi_.write(tx, 2);
+    if (recv == NULL)
+    {
+      free(recv);
+      throw std::invalid_argument("Error in mraa::Spi::write");
+    }
+    free(recv);
   }
 
   void readTrim()
@@ -78,7 +90,10 @@ public:
     uint8_t tx[25] = {};
     uint8_t rx[25];
     tx[0] = 0x88 | 0x80;
-    spi_.transfer(tx, rx, 25);
+    if (spi_.transfer(tx, rx, 25) != mraa::SUCCESS)
+    {
+      throw std::invalid_argument("Error in mraa::Spi::transfer");
+    }
 
     dig_T1_ = (rx[2] << 8) | rx[1];
     dig_T2_ = (rx[4] << 8) | rx[3];
@@ -94,12 +109,10 @@ public:
     dig_P9_ = (rx[24] << 8) | rx[23];
   }
 
-  bool init()
+  void init()
   {
     initBME();
     readTrim();
-
-    return true;
   }
 
   void readRawPressureAndTemperature(uint32_t* pres_raw, uint32_t* temp_raw)
@@ -108,7 +121,10 @@ public:
     uint8_t tx[9] = {};
     uint8_t rx[9];
     tx[0] = 0xF7 | 0x80;
-    spi_.transfer(tx, rx, 9);
+    if (spi_.transfer(tx, rx, 9) != mraa::SUCCESS)
+    {
+      throw std::invalid_argument("Error in mraa::Spi::transfer");
+    }
     *pres_raw = rx[1];
     *pres_raw = ((*pres_raw) << 8) | rx[2];
     *pres_raw = ((*pres_raw) << 4) | (rx[3] >> 4);
@@ -190,7 +206,10 @@ public:
     for (int sensor_no = 0; sensor_no < sensor_num_; sensor_no++)
     {
       tx[0] = (0x18 | sensor_no) << 3;
-      spi_.transfer(tx, rx, 3);
+      if (spi_.transfer(tx, rx, 3) != mraa::SUCCESS)
+      {
+        throw std::invalid_argument("Error in mraa::Spi::transfer");
+      }
       uint16_t value = (rx[0] & 0x01) << 11;
       value |= rx[1] << 3;
       value |= rx[2] >> 5;
@@ -218,7 +237,7 @@ public:
     i2c_ = i2c;
   }
 
-  mraa::Result setChannel(const uint8_t mux_addr, const int8_t ch)
+  bool setChannel(const uint8_t mux_addr, const int8_t ch)
   {
     uint8_t tx;
 
@@ -235,11 +254,15 @@ public:
     else
     {
       ROS_ERROR("I2C Multiplexer PCA9547 has no channel %d", ch);
-      return mraa::ERROR_UNSPECIFIED;
+      return false;
     }
 
-    i2c_->address(mux_addr);
-    return i2c_->writeByte(tx);
+    mraa::Result result = i2c_->address(mux_addr);
+    if (result != mraa::SUCCESS)
+    {
+      return false;
+    }
+    return (i2c_->writeByte(tx) == mraa::SUCCESS);
   }
 };  // end class Pca9547Mraa
 
@@ -262,7 +285,7 @@ public:
     i2c_ = i2c;
   }
 
-  mraa::Result setChannel(const uint8_t mux_addr, const int8_t ch)
+  bool setChannel(const uint8_t mux_addr, const int8_t ch)
   {
     uint8_t tx;
 
@@ -279,11 +302,15 @@ public:
     else
     {
       ROS_ERROR("I2C Multiplexer PCA9546 has no channel %d", ch);
-      return mraa::ERROR_UNSPECIFIED;
+      return false;
     }
 
-    i2c_->address(mux_addr);
-    return i2c_->writeByte(tx);
+    mraa::Result result = i2c_->address(mux_addr);
+    if (result != mraa::SUCCESS)
+    {
+      return false;
+    }
+    return (i2c_->writeByte(tx) == mraa::SUCCESS);
   }
 };  // end class Pca9546Mraa
 
@@ -324,11 +351,22 @@ public:
   }
 
   // Read from two Command Registers of VCNL4040
-  uint16_t readCommandRegister(const uint8_t command_code)
+  mraa::Result readCommandRegister(const uint8_t command_code, uint16_t* data)
   {
-    i2c_->address(i2c_addr_);
-    uint16_t rx = i2c_->readWordReg(command_code);
-    return rx;
+    mraa::Result result = i2c_->address(i2c_addr_);
+    if (result != mraa::SUCCESS)
+    {
+      return result;
+    }
+    try
+    {
+      *data = i2c_->readWordReg(command_code);
+    }
+    catch (std::invalid_argument& err)
+    {
+      return mraa::ERROR_UNSPECIFIED;
+    }
+    return mraa::SUCCESS;
   }
 
   // Write to two Command Registers of VCNL4040
@@ -336,13 +374,18 @@ public:
   {
     uint16_t data = ((uint16_t)high_data << 8) | low_data;
 
-    i2c_->address(i2c_addr_);
+    mraa::Result result = i2c_->address(i2c_addr_);
+    if (result != mraa::SUCCESS)
+    {
+      return result;
+    }
     return i2c_->writeWordReg(command_code, data);
   }
 
   bool ping()
   {
-    return (readCommandRegister(ID_L) == 0x0186);
+    uint16_t data;
+    return (readCommandRegister(ID_L, &data) == mraa::SUCCESS && data == 0x0186);
   }
 
   // Configure VCNL4040
@@ -363,37 +406,39 @@ public:
     // uint8_t ms = 0x02;  // IR LED current to 100mA
     // uint8_t ms = 0x06;  // IR LED current to 180mA
     // uint8_t ms = 0x07;  // IR LED current to 200mA
-    writeCommandRegister(PS_CONF3, conf3, ms);
-
-    return true;
+    return (writeCommandRegister(PS_CONF3, conf3, ms) == mraa::SUCCESS);
   }
 
-  void startSensing()
+  bool startSensing()
   {
     // Clear PS_SD to turn on proximity sensing
     // uint8_t conf1 = 0x00;  // Clear PS_SD bit to begin reading
     uint8_t conf1 = 0x0E;  // Integrate 8T, Clear PS_SD bit to begin reading
     // uint8_t conf2 = 0x00;  // Clear PS to 12-bit
     uint8_t conf2 = 0x08;  // Set PS to 16-bit
-    writeCommandRegister(PS_CONF1, conf1, conf2);
+    return (writeCommandRegister(PS_CONF1, conf1, conf2) == mraa::SUCCESS);
   }
 
-  void stopSensing()
+  bool stopSensing()
   {
     // Set PS_SD to turn off proximity sensing
     uint8_t conf1 = 0x01;  // Set PS_SD bit to stop reading
     uint8_t conf2 = 0x00;
-    writeCommandRegister(PS_CONF1, conf1, conf2);
+    return (writeCommandRegister(PS_CONF1, conf1, conf2) == mraa::SUCCESS);
   }
 
-  uint16_t getRawProximity()
+  bool getRawProximity(uint16_t* data)
   {
-    return readCommandRegister(PS_DATA_L);
+    return (readCommandRegister(PS_DATA_L, data) == mraa::SUCCESS);
   }
 
-  void getProximityStamped(force_proximity_ros::ProximityStamped* prox_st)
+  bool getProximityStamped(force_proximity_ros::ProximityStamped* prox_st)
   {
-    uint16_t raw = getRawProximity();
+    uint16_t raw;
+    if (!getRawProximity(&raw))
+    {
+      return false;
+    }
     // Record time of reading sensor
     prox_st->header.stamp = ros::Time::now();
     prox_st->proximity.proximity = raw;
@@ -418,6 +463,8 @@ public:
       prox_st->proximity.mode = "0";
     }
     average_value_ = ea_ * raw + (1 - ea_) * average_value_;
+
+    return true;
   }
 };  // end class Vcnl4040Mraa
 
@@ -507,7 +554,7 @@ public:
       }
       catch (std::invalid_argument& err)
       {
-        ROS_FATAL("Failed to ping VCNL4040 No.%d", sensor_no);
+        ROS_FATAL("Failed to init VCNL4040 No.%d", sensor_no);
         return false;
       }
 
