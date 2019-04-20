@@ -12,7 +12,7 @@ controller_names:
 
 vacuum_pad_motion_limit_config:
   # Lower limit of prismatic joint for free motion of vacuum pad
-  prismatic_joint_threshold: 0.36
+  prismatic_joint_threshold: 1.72
   # Upper angle limit of vacuum pad joint
   upper_angle_limit: 0
 
