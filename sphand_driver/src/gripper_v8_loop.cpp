@@ -797,6 +797,7 @@ private:
   std::map<std::string, dynamixel_msgs::JointState> received_actr_states_;
   std::vector<ros::ServiceClient> torque_enable_client_;
   std::map<std::string, double> pad_lim_conf_;
+  bool is_pad_limited_;
 
   // E-stop interface
   ros::Subscriber robot_state_sub_;
@@ -844,6 +845,7 @@ public:
     , wind_offset_flex_(wind_offset_flex)
     , i2c_sen_(i2c_mux)
     , pad_lim_conf_(pad_lim_conf)
+    , is_pad_limited_(false)
     , is_gripper_enabled_(true)
     , cnt_for_i2c_init_(0)
   {
@@ -1076,7 +1078,21 @@ public:
           if (actr_curr_pos_[prismatic_idx] < pad_lim_conf_["prismatic_joint_threshold"] &&
               actr_cmd_pos_[i] > pad_lim_conf_["upper_angle_limit"])
           {
+            if (!is_pad_limited_)
+            {
+              ROS_WARN("Vacuum pad joint becomes to be limited: command to pad joint motor: %lf, current angle of "
+                       "prismatic joint motor: %lf",
+                       actr_cmd_pos_[i], actr_curr_pos_[prismatic_idx]);
+            }
             actr_cmd_pos_[i] = pad_lim_conf_["upper_angle_limit"];
+            is_pad_limited_ = true;
+          }
+          else if (is_pad_limited_)
+          {
+            ROS_WARN("Vacuum pad joint becomes to be unlimited: command to pad joint motor: %lf, current angle of "
+                     "prismatic joint motor: %lf",
+                     actr_cmd_pos_[i], actr_curr_pos_[prismatic_idx]);
+            is_pad_limited_ = false;
           }
         }
 
