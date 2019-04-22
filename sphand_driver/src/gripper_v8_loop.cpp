@@ -737,7 +737,7 @@ public:
       }
       catch (std::invalid_argument& err)
       {
-        ROS_ERROR(err.what());
+        ROS_ERROR("%s", err.what());
         is_i2c_error = true;
       }
     } while (is_i2c_error);
