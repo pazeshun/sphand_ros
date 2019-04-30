@@ -7,3 +7,4 @@ echo ""
 
 sudo cp `rospack find sphand_driver`/supervisor/launch_left_gripper.conf /etc/supervisor/conf.d
 sudo cp `rospack find sphand_driver`/supervisor/check_i2cdetect.conf /etc/supervisor/conf.d
+sudo cp `rospack find sphand_driver`/supervisor/launch_logger.conf /etc/supervisor/conf.d
