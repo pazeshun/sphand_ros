@@ -15,6 +15,7 @@ Please do `sudo apt-get -y autoremove --purge 'linux-.*generic'` again after reb
 ### Install Astra Camera
 
 Please follow [jsk_recognition documentation](https://jsk-recognition.readthedocs.io/en/latest/install_astra_camera.html).
+
 ### Install C/C++ Library in libmraa
 
 ```bash
@@ -27,6 +28,7 @@ Details are on [GitHub page](https://github.com/intel-iot-devkit/mraa).
 ### Install sphand_ros and its dependencies
 
 ```bash
+sudo apt-get install tmux
 mkdir -p ~/apc_ws/src
 cd ~/apc_ws/src
 git clone https://github.com/pazeshun/sphand_ros.git
@@ -113,18 +115,28 @@ I2C Block Read                   yes
 
 ## Usage
 
-### How to kill and restart roslaunch
+### How to restart roslaunch
 
 ```bash
-# Kill
-sudo service supervisor stop  # Or {sudo supervisorctl shutdown}
-kill <roslaunch_pid>  # Get pid by {ps aux | grep roslaunch}
-# Restart
-sudo service supervisor start
+sudo service supervisor restart  # Or {sudo supervisorctl restart}
 ```
 
-### How to see stdout/stderr from roslaunch
+### How to access roslaunch terminal
 
 ```bash
-cat /var/log/supervisor/LaunchLeftGripper.log
+# Be careful to use this, because this session is killed when logger daemon is killed or roslaunch daemon is restarted
+tmux attach -t gripper
+```
+
+### How to see stdout/stderr from roslaunch dropped from tmux
+
+```bash
+cat /var/log/supervisor/LaunchLogger.log
+```
+
+### How to see other logs
+
+```bash
+cat /var/log/supervisor/CheckI2cdetect.log  # Log of I2C interface recognition test
+cat /var/log/supervisor/LaunchLeftGripper.log  # Log of preprocess for roslaunch (e.g., network checking)
 ```
