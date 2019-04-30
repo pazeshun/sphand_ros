@@ -10,6 +10,9 @@ done
 mkdir /tmp/supervisor
 mkfifo /tmp/supervisor/launch_logger_fifo
 
+# Kill previous roslaunch
+tmux kill-session -t gripper
+
 # roslaunch in tmux
 set -e
 tmux new-session -d -s gripper -n roslaunch
