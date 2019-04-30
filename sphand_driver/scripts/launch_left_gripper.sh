@@ -6,7 +6,7 @@ do
   sleep 1
 done
 
-# Prepare FIFO for logging
+# Prepare FIFO for logging. Perhaps this FIFO is already prepared by LaunchLogger
 mkdir /tmp/supervisor
 mkfifo /tmp/supervisor/launch_logger_fifo
 
