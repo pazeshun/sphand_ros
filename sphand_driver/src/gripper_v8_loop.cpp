@@ -620,6 +620,7 @@ public:
       {
         if (is_i2c_error)
         {
+          ros::Duration(0.5).sleep();
           ROS_INFO("Try to re-initialize all I2C sensors");
           // If begin() in init() has once been called against unconnected VL53L0X,
           // begin() sometimes fails to reconnect with VL53L0X.
