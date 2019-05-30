@@ -2,6 +2,7 @@
 
   <arg name="left_gripper" default="true" />
   <arg name="gripper_only" default="true" />
+  <arg name="launch_camera" default="true" />
 
   <!-- For gripper only -->
   <param name="/robot_description"
@@ -21,7 +22,7 @@
         unless="$(arg left_gripper)"/>
 
   <!-- camera -->
-  <include file="$(find sphand_driver)/launch/include/astra.launch">
+  <include file="$(find sphand_driver)/launch/include/astra.launch" if="$(arg launch_camera)">
     <arg name="left_gripper" value="$(arg left_gripper)" />
   </include>
 
