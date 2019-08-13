@@ -655,7 +655,7 @@ public:
           }
           ROS_INFO("sensor_no: %d, measurement start: %lf", sensor_no, ros::Time::now().toSec());
           if (vl53l0x_array_[sensor_no].setDeviceModeToSingleRanging() != VL53L0X_ERROR_NONE ||
-              vl53l0x_array_[sensor_no].startMeasurement() != VL53L0X_ERROR_NONE)
+              vl53l0x_array_[sensor_no].startSingleRangingWithoutWaitForStop() != VL53L0X_ERROR_NONE)
           {
             std::ostringstream ss;
             ss << "Failed to start sensing on VL53L0X No. " << sensor_no;
@@ -724,7 +724,8 @@ public:
           if (std::find(tof_turned_off_.begin(), tof_turned_off_.end(), sensor_no) == tof_turned_off_.end())
           {
             ROS_INFO("sensor_no: %d, polling start: %lf", sensor_no, ros::Time::now().toSec());
-            if (vl53l0x_array_[sensor_no].measurementPollForCompletion() != VL53L0X_ERROR_NONE)
+            if (vl53l0x_array_[sensor_no].waitForSingleRangingToStop() != VL53L0X_ERROR_NONE ||
+                vl53l0x_array_[sensor_no].measurementPollForCompletion() != VL53L0X_ERROR_NONE)
             {
               std::ostringstream ss;
               ss << "Failed to read data of VL53L0X No. " << sensor_no;
