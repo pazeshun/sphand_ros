@@ -493,6 +493,7 @@ private:
   std::vector<uint64_t> tof_turned_off_;
   std::vector<std::vector<uint64_t> > tof_read_order_;
   int tof_read_idx_;
+  bool is_tof_start_stop_req_;
 
 public:
   I2cSensorDriver(const std::vector<std::vector<std::map<std::string, int> > > i2c_mux, const int i2c_bus = 0)
@@ -596,12 +597,7 @@ public:
         ss << "Failed to set device mode to continuous ranging in VL53L0X No. " << sensor_no;
         throw std::invalid_argument(ss.str());
       }
-      if (vl53l0x_array_[sensor_no].startMeasurement() != VL53L0X_ERROR_NONE)
-      {
-        std::ostringstream ss;
-        ss << "Failed to start measurement in VL53L0X No. " << sensor_no;
-        throw std::invalid_argument(ss.str());
-      }
+      is_tof_start_stop_req_ = true;
     }
   }
 
@@ -647,33 +643,45 @@ public:
           ROS_INFO("Re-initialized all I2C sensors");
         }
 
-        // Start ToF sensing
+        // Start & stop ToF sensing
         int prev_sen_no = -1;
-        //for (int sensor_no = 0; sensor_no < i2c_mux_.size(); sensor_no++)
-        //{
-        //  if (std::find(tof_turned_off_.begin(), tof_turned_off_.end(), sensor_no) != tof_turned_off_.end())
-        //  {
-        //    continue;
-        //  }
-        //  if (prev_sen_no < 0)
-        //  {
-        //    setMultiplexers(i2c_mux_[sensor_no]);
-        //  }
-        //  else
-        //  {
-        //    setMultiplexers(i2c_mux_[sensor_no], i2c_mux_[prev_sen_no]);
-        //  }
-        //  ROS_INFO("sensor_no: %d, measurement start: %lf", sensor_no, ros::Time::now().toSec());
-        //  if (vl53l0x_array_[sensor_no].setDeviceModeToSingleRanging() != VL53L0X_ERROR_NONE ||
-        //      vl53l0x_array_[sensor_no].startSingleRangingWithoutWaitForStop() != VL53L0X_ERROR_NONE)
-        //  {
-        //    std::ostringstream ss;
-        //    ss << "Failed to start sensing on VL53L0X No. " << sensor_no;
-        //    throw std::invalid_argument(ss.str());
-        //  }
-        //  ROS_INFO("sensor_no: %d, end: %lf", sensor_no, ros::Time::now().toSec());
-        //  prev_sen_no = sensor_no;
-        //}
+        if (is_tof_start_stop_req_)
+        {
+          for (int sensor_no = 0; sensor_no < i2c_mux_.size(); sensor_no++)
+          {
+            if (prev_sen_no < 0)
+            {
+              setMultiplexers(i2c_mux_[sensor_no]);
+            }
+            else
+            {
+              setMultiplexers(i2c_mux_[sensor_no], i2c_mux_[prev_sen_no]);
+            }
+
+            if (std::find(tof_turned_off_.begin(), tof_turned_off_.end(), sensor_no) == tof_turned_off_.end())
+            {
+              if (vl53l0x_array_[sensor_no].startMeasurement() != VL53L0X_ERROR_NONE)
+              {
+                std::ostringstream ss;
+                ss << "Failed to start measurement in VL53L0X No. " << sensor_no;
+                throw std::invalid_argument(ss.str());
+              }
+            }
+            else
+            {
+              if (vl53l0x_array_[sensor_no].stopMeasurement() != VL53L0X_ERROR_NONE ||
+                  vl53l0x_array_[sensor_no].waitStopCompleted() != VL53L0X_ERROR_NONE)
+              {
+                std::ostringstream ss;
+                ss << "Failed to stop measurement in VL53L0X No. " << sensor_no;
+                throw std::invalid_argument(ss.str());
+              }
+            }
+            prev_sen_no = sensor_no;
+          }
+          is_tof_start_stop_req_ = false;
+        }
+
         // Start intensity sensing
         for (int sensor_no = 0; sensor_no < i2c_mux_.size(); sensor_no++)
         {
@@ -831,6 +839,8 @@ public:
       tof_read_order_.push_back(rest);
     }
     tof_read_idx_ = 0;
+    is_tof_start_stop_req_ = true;
+
     return true;
   }
 };  // end class I2cSensorDriver
