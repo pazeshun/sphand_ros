@@ -478,6 +478,8 @@ private:
     VCNL4040_ADDR = 0x60,
     // 7-bit unshifted I2C address of VL53L0X
     VL53L0X_ADDR = 0x29,
+    // Max number of VL53L0X readable in a cycle
+    MAX_TOF_IN_A_CYCLE = 4,
   };
   std::vector<std::vector<std::map<std::string, int> > > i2c_mux_;
   mraa::I2c i2c_;
@@ -489,6 +491,8 @@ private:
   vl53l0x_mraa_ros::RangingMeasurementDataStampedArray current_tof_array_;
   std::vector<uint64_t> i_turned_off_;
   std::vector<uint64_t> tof_turned_off_;
+  std::vector<std::vector<uint64_t> > tof_read_order_;
+  int tof_read_idx_;
 
 public:
   I2cSensorDriver(const std::vector<std::vector<std::map<std::string, int> > > i2c_mux, const int i2c_bus = 0)
@@ -500,14 +504,8 @@ public:
     // cf. https://forum.up-community.org/discussion/2402/i2c-400khz-and-pullup-resistors
     i2c_.frequency(mraa::I2C_FAST);
     current_tof_array_.array.resize(i2c_mux_.size());
-    //tof_turned_off_.push_back(0);
-    //tof_turned_off_.push_back(1);
-    //tof_turned_off_.push_back(2);
-    //tof_turned_off_.push_back(3);
-    tof_turned_off_.push_back(4);
-    tof_turned_off_.push_back(5);
-    tof_turned_off_.push_back(6);
-    tof_turned_off_.push_back(7);
+    // Initialize tof_read_order_
+    turnOffTof(std::vector<uint64_t>());
   }
 
   ~I2cSensorDriver()
@@ -733,7 +731,8 @@ public:
           intensity_array->proximities.push_back(intensity_st);
 
           // ToF
-          if (std::find(tof_turned_off_.begin(), tof_turned_off_.end(), sensor_no) == tof_turned_off_.end())
+          const std::vector<uint64_t>& tof_read_target = tof_read_order_[tof_read_idx_];
+          if (std::find(tof_read_target.begin(), tof_read_target.end(), sensor_no) != tof_read_target.end())
           {
             if (vl53l0x_array_[sensor_no].measurementPollForCompletion() != VL53L0X_ERROR_NONE)
             {
@@ -767,6 +766,11 @@ public:
             current_tof_array_.array[sensor_no] = tof_data_st;
           }
           tof_array->array.push_back(current_tof_array_.array[sensor_no]);
+        }
+        tof_read_idx_++;
+        if (tof_read_idx_ >= tof_read_order_.size())
+        {
+          tof_read_idx_ = 0;
         }
 
         // Record time of reading last sensor
@@ -805,6 +809,28 @@ public:
       }
     }
     tof_turned_off_ = tof_turned_off;
+
+    // Prepare tof_read_order_
+    tof_read_order_.clear();
+    tof_read_order_.push_back(std::vector<uint64_t>());
+    for (int sensor_no = 0; sensor_no < i2c_mux_.size(); sensor_no++)
+    {
+      if (std::find(tof_turned_off_.begin(), tof_turned_off_.end(), sensor_no) == tof_turned_off_.end())
+      {
+        tof_read_order_[0].push_back(sensor_no);
+      }
+    }
+    // Each element of tof_read_order_ has size no more than MAX_TOF_IN_A_CYCLE
+    while (tof_read_order_.back().size() > MAX_TOF_IN_A_CYCLE)
+    {
+      std::vector<uint64_t> last = tof_read_order_.back();
+      tof_read_order_.pop_back();
+      std::vector<uint64_t> first_four(last.begin(), last.begin() + MAX_TOF_IN_A_CYCLE);
+      tof_read_order_.push_back(first_four);
+      std::vector<uint64_t> rest(last.begin() + MAX_TOF_IN_A_CYCLE, last.end());
+      tof_read_order_.push_back(rest);
+    }
+    tof_read_idx_ = 0;
     return true;
   }
 };  // end class I2cSensorDriver
