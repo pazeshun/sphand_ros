@@ -85,4 +85,5 @@ i2c_multiplexers_to_access_each_sensor:
 #        less than 27 Hz, otherwise motor command will be delayed due to infinite queue of
 #        ros subscribers in dynamixel_controllers
 # FIXME: Reading I2C sensors limits loop rate to 24 Hz
-control_rate: 24
+# FIXME: Reading 4 ToF sensors with continuous ranging limits loop rate to 20 Hz
+control_rate: 20
