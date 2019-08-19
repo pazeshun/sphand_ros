@@ -601,6 +601,29 @@ public:
     }
   }
 
+  void cleanup()
+  {
+    // Stop ToF sensing
+    int prev_sen_no = -1;
+    for (int sensor_no = 0; sensor_no < i2c_mux_.size(); sensor_no++)
+    {
+      if (prev_sen_no < 0)
+      {
+        setMultiplexers(i2c_mux_[sensor_no]);
+      }
+      else
+      {
+        setMultiplexers(i2c_mux_[sensor_no], i2c_mux_[prev_sen_no]);
+      }
+      if (vl53l0x_array_[sensor_no].stopMeasurement() != VL53L0X_ERROR_NONE ||
+          vl53l0x_array_[sensor_no].waitStopCompleted() != VL53L0X_ERROR_NONE)
+      {
+        ROS_ERROR("Failed to stop measurement in VL53L0X No. %d", sensor_no);
+      }
+      prev_sen_no = sensor_no;
+    }
+  }
+
   void resetTof()
   {
     for (int sensor_no = 0; sensor_no < i2c_mux_.size(); sensor_no++)
@@ -1047,6 +1070,7 @@ public:
 
   void cleanup()
   {
+    i2c_sen_.cleanup();
     subscriber_spinner_->stop();
   }
 
