@@ -502,8 +502,8 @@ public:
     current_tof_array_.array.resize(i2c_mux_.size());
     //tof_turned_off_.push_back(0);
     //tof_turned_off_.push_back(1);
-    tof_turned_off_.push_back(2);
-    tof_turned_off_.push_back(3);
+    //tof_turned_off_.push_back(2);
+    //tof_turned_off_.push_back(3);
     tof_turned_off_.push_back(4);
     tof_turned_off_.push_back(5);
     tof_turned_off_.push_back(6);
@@ -592,6 +592,18 @@ public:
         ss << "Failed to set MeasurementTimingBudget in VL53L0X No. " << sensor_no;
         throw std::invalid_argument(ss.str());
       }
+      if (vl53l0x_array_[sensor_no].setDeviceModeToContinuousRanging() != VL53L0X_ERROR_NONE)
+      {
+        std::ostringstream ss;
+        ss << "Failed to set device mode to continuous ranging in VL53L0X No. " << sensor_no;
+        throw std::invalid_argument(ss.str());
+      }
+      if (vl53l0x_array_[sensor_no].startMeasurement() != VL53L0X_ERROR_NONE)
+      {
+        std::ostringstream ss;
+        ss << "Failed to start measurement in VL53L0X No. " << sensor_no;
+        throw std::invalid_argument(ss.str());
+      }
     }
   }
 
@@ -639,31 +651,31 @@ public:
 
         // Start ToF sensing
         int prev_sen_no = -1;
-        for (int sensor_no = 0; sensor_no < i2c_mux_.size(); sensor_no++)
-        {
-          if (std::find(tof_turned_off_.begin(), tof_turned_off_.end(), sensor_no) != tof_turned_off_.end())
-          {
-            continue;
-          }
-          if (prev_sen_no < 0)
-          {
-            setMultiplexers(i2c_mux_[sensor_no]);
-          }
-          else
-          {
-            setMultiplexers(i2c_mux_[sensor_no], i2c_mux_[prev_sen_no]);
-          }
-          ROS_INFO("sensor_no: %d, measurement start: %lf", sensor_no, ros::Time::now().toSec());
-          if (vl53l0x_array_[sensor_no].setDeviceModeToSingleRanging() != VL53L0X_ERROR_NONE ||
-              vl53l0x_array_[sensor_no].startSingleRangingWithoutWaitForStop() != VL53L0X_ERROR_NONE)
-          {
-            std::ostringstream ss;
-            ss << "Failed to start sensing on VL53L0X No. " << sensor_no;
-            throw std::invalid_argument(ss.str());
-          }
-          ROS_INFO("sensor_no: %d, end: %lf", sensor_no, ros::Time::now().toSec());
-          prev_sen_no = sensor_no;
-        }
+        //for (int sensor_no = 0; sensor_no < i2c_mux_.size(); sensor_no++)
+        //{
+        //  if (std::find(tof_turned_off_.begin(), tof_turned_off_.end(), sensor_no) != tof_turned_off_.end())
+        //  {
+        //    continue;
+        //  }
+        //  if (prev_sen_no < 0)
+        //  {
+        //    setMultiplexers(i2c_mux_[sensor_no]);
+        //  }
+        //  else
+        //  {
+        //    setMultiplexers(i2c_mux_[sensor_no], i2c_mux_[prev_sen_no]);
+        //  }
+        //  ROS_INFO("sensor_no: %d, measurement start: %lf", sensor_no, ros::Time::now().toSec());
+        //  if (vl53l0x_array_[sensor_no].setDeviceModeToSingleRanging() != VL53L0X_ERROR_NONE ||
+        //      vl53l0x_array_[sensor_no].startSingleRangingWithoutWaitForStop() != VL53L0X_ERROR_NONE)
+        //  {
+        //    std::ostringstream ss;
+        //    ss << "Failed to start sensing on VL53L0X No. " << sensor_no;
+        //    throw std::invalid_argument(ss.str());
+        //  }
+        //  ROS_INFO("sensor_no: %d, end: %lf", sensor_no, ros::Time::now().toSec());
+        //  prev_sen_no = sensor_no;
+        //}
         // Start intensity sensing
         for (int sensor_no = 0; sensor_no < i2c_mux_.size(); sensor_no++)
         {
@@ -723,24 +735,18 @@ public:
           // ToF
           if (std::find(tof_turned_off_.begin(), tof_turned_off_.end(), sensor_no) == tof_turned_off_.end())
           {
-            ROS_INFO("sensor_no: %d, polling start: %lf", sensor_no, ros::Time::now().toSec());
-            if (vl53l0x_array_[sensor_no].waitForSingleRangingToStop() != VL53L0X_ERROR_NONE ||
-                vl53l0x_array_[sensor_no].measurementPollForCompletion() != VL53L0X_ERROR_NONE)
+            if (vl53l0x_array_[sensor_no].measurementPollForCompletion() != VL53L0X_ERROR_NONE)
             {
               std::ostringstream ss;
               ss << "Failed to read data of VL53L0X No. " << sensor_no;
               throw std::invalid_argument(ss.str());
             }
-            ROS_INFO("sensor_no: %d, end: %lf", sensor_no, ros::Time::now().toSec());
-            vl53l0x_array_[sensor_no].setPalStateToIdle();
-            ROS_INFO("sensor_no: %d, getting start: %lf", sensor_no, ros::Time::now().toSec());
             if (vl53l0x_array_[sensor_no].getRangingMeasurementData(&tof_data) != VL53L0X_ERROR_NONE)
             {
               std::ostringstream ss;
               ss << "Failed to read data of VL53L0X No. " << sensor_no;
               throw std::invalid_argument(ss.str());
             }
-            ROS_INFO("sensor_no: %d, end: %lf", sensor_no, ros::Time::now().toSec());
             if (tof_data.RangeStatus > 5)
             {
               std::ostringstream ss;
