@@ -36,9 +36,17 @@
         queue_size: 10
       </rosparam>
     </node>
+    <node name="tof_low_pass_filter" pkg="sphand_driver" type="tof_low_pass_filter.py" output="screen">
+      <remap from="~input" to="tof_proximities"/>
+      <rosparam>
+        # input_coeff: 0.8  # Min and max in stable state are almost the same as original
+        # input_coeff: 0.3  # Min and max in stable state are almost the same as average, but trackability is better than average
+        input_coeff: 0.3
+      </rosparam>
+    </node>
     <node name="intensity_prox_calibrator" pkg="sphand_driver" type="intensity_prox_calibrator.py" output="screen">
       <remap from="~input/intensity" to="intensity_proximities"/>
-      <remap from="~input/tof" to="tof_average/output"/>
+      <remap from="~input/tof" to="tof_low_pass_filter/output"/>
       <rosparam>
         i_height_from_tof: [6.0, 6.0, 6.0, 6.0, 0.0, 0.0, 0.0, 0.0]
         use_i_average: true
