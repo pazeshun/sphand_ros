@@ -48,6 +48,8 @@ class IntensityProxCalibrator(object):
             '~input/tof', RangingMeasurementDataStampedArray, self._tof_cb)
         self.init_srv = rospy.Service(
             '~set_init_proximities', Trigger, self._set_init_proximities)
+        self.reset_i_prop_const_srv = rospy.Service(
+            '~reset_i_prop_const', Trigger, self._reset_i_prop_const)
 
     def _intensity_cb(self, msg):
         if self.use_i_average:
@@ -134,6 +136,14 @@ class IntensityProxCalibrator(object):
         is_success = True
         if self.i_raw is not None:
             self.i_init_value = self.i_raw.copy()
+        else:
+            is_success = False
+        return TriggerResponse(success=is_success)
+
+    def _reset_i_prop_const(self, req):
+        is_success = True
+        if self.i_raw is not None:
+            self.i_prop_const = np.zeros(len(self.i_raw))
         else:
             is_success = False
         return TriggerResponse(success=is_success)
