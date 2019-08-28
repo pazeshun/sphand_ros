@@ -31,6 +31,7 @@
 #include <std_msgs/Bool.h>
 #include <std_msgs/Float64.h>
 #include <std_msgs/UInt16.h>
+#include <std_srvs/SetBool.h>
 #include <vl53l0x_mraa_ros/RangingMeasurementDataStamped.h>
 #include <vl53l0x_mraa_ros/RangingMeasurementDataStampedArray.h>
 
@@ -913,6 +914,8 @@ private:
   FlexSensorDriver flex_sen_;
   std::vector<uint16_t> received_flex_;
   std::map<std::string, ros::Publisher> flex_pub_;
+  bool is_flex_reflex_enabled_;
+  ros::ServiceServer enable_flex_reflex_srv_;
 
   // Proximity sensor
   I2cSensorDriver i2c_sen_;
@@ -945,6 +948,7 @@ public:
     , pad_lim_conf_(pad_lim_conf)
     , is_pad_limited_(false)
     , is_gripper_enabled_(true)
+    , is_flex_reflex_enabled_(true)
     , cnt_for_i2c_init_(0)
   {
     // Register actuator interfaces to transmission loader
@@ -1061,6 +1065,7 @@ public:
     {
       flex_pub_[flex_names_[i]] = nh_.advertise<std_msgs::UInt16>("flex/" + flex_names_[i] + "/state", 1);
     }
+    enable_flex_reflex_srv_ = nh_.advertiseService("enable_flex_reflex", &GripperLoop::enableFlexReflex, this);
 
     // Start spinning
     nh_.setCallbackQueue(&subscriber_queue_);
@@ -1157,7 +1162,7 @@ public:
       for (int i = 0; i < actr_names_.size(); i++)
       {
         // If fingers flex, add offset angle to finger tendon winder
-        if (actr_names_[i].find("finger_tendon_winder") != std::string::npos)
+        if (is_flex_reflex_enabled_ && actr_names_[i].find("finger_tendon_winder") != std::string::npos)
         {
           for (int j = 0; j < flex_names_.size(); j++)
           {
@@ -1259,6 +1264,13 @@ public:
       res.success = false;
       res.message = "Specified sensor id doesn't exist";
     }
+    return true;
+  }
+
+  bool enableFlexReflex(std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& res)
+  {
+    is_flex_reflex_enabled_ = req.data;
+    res.success = true;
     return true;
   }
 };  // end class GripperLoop
