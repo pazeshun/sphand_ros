@@ -1128,8 +1128,9 @@ public:
       actr_curr_pos_[i] = received_actr_states_[actr_names_[i]].current_pos;
       actr_curr_vel_[i] = received_actr_states_[actr_names_[i]].velocity;
 
-      // If fingers flex, add offset angle to finger tendon winder
-      if (actr_names_[i].find("finger_tendon_winder") != std::string::npos)
+      // If fingers flex, add offset angle to finger tendon winder.
+      // If this addition works when is_flex_reflex_enabled_ is false, fingers suddenly open when motion is cancelled
+      if (is_flex_reflex_enabled_ && actr_names_[i].find("finger_tendon_winder") != std::string::npos)
       {
         for (int j = 0; j < flex_names_.size(); j++)
         {
