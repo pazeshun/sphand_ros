@@ -4,13 +4,23 @@ Packages which provide ROS tools for the Suction Pinching Hand after Ver.7.0.
 
 ## Installation
 
-### Install Ubuntu 14.04 and ROS Indigo to UP Board
+### Install Ubuntu and ROS to UP Board
+
+#### Ubuntu 14.04 and ROS Indigo
 
 Please follow <https://01.org/developerjourney/installing-ubutnu-1404-lts-intel-realsense-robotic-development-kit>.
 
-#### Caution
+(2019/10/10) The above page is lost, so see [the archived page](https://web.archive.org/web/20190117004901/https://01.org/developerjourney/installing-ubutnu-1404-lts-intel-realsense-robotic-development-kit).
 
-Please do `sudo apt-get -y autoremove --purge 'linux-.*generic'` again after rebooting for installing `linux-upboard`.
+- Caution
+
+  Please do `sudo apt-get -y autoremove --purge 'linux-.*generic'` again after rebooting for installing `linux-upboard`.
+
+#### Ubuntu 16.04 and ROS Kinetic
+
+1. Follow "Install Ubuntu for UP, UP2, UP Core and UP Core Plus" and "Install Ubuntu kernel 4.15.0 for UP from PPA on Ubuntu 16.04" in <https://wiki.up-community.org/Ubuntu>
+
+2. Follow <http://wiki.ros.org/kinetic/Installation/Ubuntu> to install `ros-kinetic-desktop-full`.
 
 ### Install Astra Camera
 
