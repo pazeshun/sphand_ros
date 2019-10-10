@@ -52,6 +52,7 @@ wstool update
 cd ~/apc_ws/src
 rosdep install -y -r --from-paths . --ignore-src
 sudo apt-get install python-catkin-tools ros-$ROS_DISTRO-jsk-tools
+cd ..
 catkin build
 source ~/apc_ws/devel/setup.bash
 ```
