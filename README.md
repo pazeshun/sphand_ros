@@ -45,11 +45,13 @@ git clone https://github.com/pazeshun/sphand_ros.git
 ln -s sphand_ros/fc.rosinstall .rosinstall
 wstool update
 cd JSK_APC_WS
-ln -s jsk_apc/.travis.rosinstall .rosinstall
+# `ln -s jsk_apc/.travis.rosinstall .rosinstall` is better, but .travis.rosinstall.$ROS_DISTRO is also needed
+cp jsk_apc/.travis.rosinstall .rosinstall
+wstool merge jsk_apc/.travis.rosinstall.$ROS_DISTRO
 wstool update
 cd ~/apc_ws/src
 rosdep install -y -r --from-paths . --ignore-src
-sudo apt-get install python-catkin-tools ros-indigo-jsk-tools
+sudo apt-get install python-catkin-tools ros-$ROS_DISTRO-jsk-tools
 catkin build
 source ~/apc_ws/devel/setup.bash
 ```
