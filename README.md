@@ -68,6 +68,7 @@ rosrun sphand_driver create_udev_rules
 2. Set unique ID by `rosrun dynamixel_driver change_id.py`
 3. Disable Overload Error in Alarm LED and Alarm Shutdown of finger\_tendon\_winder by following
 ```
+$ sudo apt-get install ipython
 $ ipython
 
 In [1]: import roslib
