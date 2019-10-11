@@ -100,11 +100,17 @@ Otherwise, UP Board will reboot infinitely.
 Check `i2cdetect` before running this script.
 
 ```bash
-sudo apt-get install supervisor
+$ sudo apt-get install supervisor
 # i2cdetect, tmux, rossetip & rossetmaster are required for auto-launching scripts
-sudo apt-get install i2c-tools tmux ros-$ROS_DISTRO-jsk-tools
-rosrun sphand_driver create_supervisor_conf
-sudo service supervisor restart
+$ sudo apt-get install i2c-tools tmux ros-$ROS_DISTRO-jsk-tools
+$ rosrun sphand_driver create_supervisor_conf
+
+This script generates supervisor config for auto launching
+in /etc/supervisor/conf.d
+
+Which user do you want to launch sphand_driver? baxter
+Use baxter as user name in configs
+$ sudo service supervisor restart
 ```
 
 \* Intended output of `i2cdetect`:
