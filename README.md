@@ -119,8 +119,8 @@ SMBus Read Byte                  yes
 SMBus Write Word                 yes
 SMBus Read Word                  yes
 SMBus Process Call               no
-SMBus Block Write                no
-SMBus Block Read                 no
+SMBus Block Write                no  # yes in 16.04
+SMBus Block Read                 no  # yes in 16.04
 SMBus Block Process Call         no
 SMBus PEC                        no
 I2C Block Write                  yes
