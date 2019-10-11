@@ -100,8 +100,8 @@ Check `i2cdetect` before running this script.
 
 ```bash
 sudo apt-get install supervisor
-# tmux, rossetip & rossetmaster are required for an auto-launching script
-sudo apt-get install tmux ros-$ROS_DISTRO-jsk-tools
+# i2cdetect, tmux, rossetip & rossetmaster are required for auto-launching scripts
+sudo apt-get install i2c-tools tmux ros-$ROS_DISTRO-jsk-tools
 rosrun sphand_driver create_supervisor_conf
 sudo service supervisor restart
 ```
