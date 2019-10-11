@@ -38,7 +38,6 @@ Details are on [GitHub page](https://github.com/intel-iot-devkit/mraa).
 ### Install sphand_ros and its dependencies
 
 ```bash
-sudo apt-get install tmux
 mkdir -p ~/apc_ws/src
 cd ~/apc_ws/src
 git clone https://github.com/pazeshun/sphand_ros.git
@@ -51,7 +50,7 @@ wstool merge jsk_apc/.travis.rosinstall.$ROS_DISTRO
 wstool update
 cd ~/apc_ws/src
 rosdep install -y -r --from-paths . --ignore-src
-sudo apt-get install python-catkin-tools ros-$ROS_DISTRO-jsk-tools
+sudo apt-get install python-catkin-tools
 cd ..
 catkin build
 source ~/apc_ws/devel/setup.bash
@@ -101,6 +100,8 @@ Check `i2cdetect` before running this script.
 
 ```bash
 sudo apt-get install supervisor
+# tmux, rossetip & rossetmaster are required for an auto-launching script
+sudo apt-get install tmux ros-$ROS_DISTRO-jsk-tools
 rosrun sphand_driver create_supervisor_conf
 sudo service supervisor restart
 ```
