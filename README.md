@@ -75,18 +75,17 @@ ls: cannot access '/dev/spidev2.1': No such file or directory
 In that case, you have to create it by adding an extra kernel boot parameter.
 1. Open `/etc/default/grub` in some editor (e.g., `$ sudo vi /etc/default/grub`)
 2. Find the line starting with `GRUB_CMDLINE_LINUX_DEFAULT` and append `up_board.spidev1=Y` to its end. For example:
-```
-GRUB_CMDLINE_LINUX_DEFAULT="quiet splash up_board.spidev1=Y"
-```
-Save and close the file
+   ```
+   GRUB_CMDLINE_LINUX_DEFAULT="quiet splash up_board.spidev1=Y"
+   ```
+   Save and close the file
 3. Apply that change to the booting system by `$ sudo update-grub`
 4. `$ sudo reboot`
 5. Check if `/dev/spidev2.1` exists:
-```bash
-$ ls -l /dev/spidev2.1
-crw-rw-rw- 1 root root 153, 1 10月 17 16:16 /dev/spidev2.1
-```
-
+   ```bash
+   $ ls -l /dev/spidev2.1
+   crw-rw-rw- 1 root root 153, 1 10月 17 16:16 /dev/spidev2.1
+   ```
 See <https://github.com/pazeshun/sphand_ros/issues/11> for more details.
 
 ### Setup dynamixel motors
