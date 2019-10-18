@@ -706,7 +706,8 @@ public:
           is_tof_start_stop_req_ = false;
         }
 
-        // Start intensity sensing
+        // Start intensity sensing & wait for sensor values ready
+        ros::Time sensor_ready_tm = ros::Time::now() + ros::Duration(0.005);
         for (int sensor_no = 0; sensor_no < i2c_mux_.size(); sensor_no++)
         {
           if (std::find(i_turned_off_.begin(), i_turned_off_.end(), sensor_no) != i_turned_off_.end())
@@ -728,6 +729,11 @@ public:
             throw std::invalid_argument(ss.str());
           }
           prev_sen_no = sensor_no;
+        }
+        ros::Duration sensor_wait_dur = sensor_ready_tm - ros::Time::now();
+        if (sensor_wait_dur.toSec() > 0)
+        {
+          sensor_wait_dur.sleep();
         }
 
         // Fill necessary data of proximity
