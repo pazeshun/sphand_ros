@@ -35,10 +35,108 @@
 #include <vl53l0x_mraa_ros/RangingMeasurementDataStamped.h>
 #include <vl53l0x_mraa_ros/RangingMeasurementDataStampedArray.h>
 
+// Temporary class to use /dev/spidev2.1 (see https://github.com/pazeshun/sphand_ros/issues/15)
+// XXX: Don't substitute this class for mraa::Spi pointer as mraa::Spi's destructor doesn't have virtual
+// https://qiita.com/ashdik/items/3cb3ee76137d176982f7
+// http://cpp.aquariuscode.com/inheritance-use-case
+// XXX: Because this is temporary, only write and transfer are implemented
+class SpiWithCS1 : public mraa::Spi
+{
+private:
+  const int bus_;
+  const int cs_;
+  mraa::Gpio cs1_pin_;
+
+public:
+  SpiWithCS1(int bus, int cs)
+    : bus_(bus)
+    , cs_(cs)
+    , cs1_pin_(26)  // Pin number is MRAA Number in https://iotdk.intel.com/docs/master/mraa/up.html
+    , mraa::Spi(bus, cs)
+  {
+    cs1_pin_.dir(mraa::DIR_OUT);
+    cs1_pin_.write(1);
+  }
+
+  ~SpiWithCS1()
+  {
+    cs1_pin_.write(1);
+  }
+
+  uint8_t* write(uint8_t* txBuf, int length)
+  {
+    // Initialize SPI_CS1
+    mraa::Result res_gpio;
+    if (cs_ == 1)
+    {
+      res_gpio = cs1_pin_.write(0);
+    }
+    else
+    {
+      res_gpio = cs1_pin_.write(1);
+    }
+    if (res_gpio != mraa::SUCCESS)
+    {
+      std::cout << "Error in mraa::Gpio::write in SpiWithCS1::write" << std::endl;
+      return NULL;
+    }
+
+    // Main function
+    uint8_t* res = mraa::Spi::write(txBuf, length);
+
+    // Finalize SPI_CS1
+    if (cs_ == 1)
+    {
+      if (cs1_pin_.write(1) != mraa::SUCCESS)
+      {
+        std::cout << "Error in mraa::Gpio::write in SpiWithCS1::write" << std::endl;
+        return NULL;
+      }
+    }
+
+    return res;
+  }
+
+  mraa::Result transfer(uint8_t* txBuf, uint8_t* rxBuf, int length)
+  {
+    // Initialize SPI_CS1
+    mraa::Result res_gpio;
+    if (cs_ == 1)
+    {
+      res_gpio = cs1_pin_.write(0);
+    }
+    else
+    {
+      res_gpio = cs1_pin_.write(1);
+    }
+    if (res_gpio != mraa::SUCCESS)
+    {
+      std::cout << "Error in mraa::Gpio::write in SpiWithCS1::transfer" << std::endl;
+      return res_gpio;
+    }
+
+    // Main function
+    mraa::Result res = mraa::Spi::transfer(txBuf, rxBuf, length);
+
+    // Finalize SPI_CS1
+    if (cs_ == 1)
+    {
+      res_gpio = cs1_pin_.write(1);
+      if (res_gpio != mraa::SUCCESS)
+      {
+        std::cout << "Error in mraa::Gpio::write in SpiWithCS1::transfer" << std::endl;
+        return res_gpio;
+      }
+    }
+
+    return res;
+  }
+};
+
 class PressureSensorDriver
 {
 private:
-  mraa::Spi spi_;
+  SpiWithCS1 spi_;
   uint16_t dig_T1_;
   int16_t dig_T2_;
   int16_t dig_T3_;
@@ -72,7 +170,7 @@ public:
     if (recv == NULL)
     {
       free(recv);
-      throw std::invalid_argument("Error in mraa::Spi::write");
+      throw std::invalid_argument("Error in SpiWithCS1::write");
     }
     free(recv);
     tx[0] = 0xF4 & 0x7F;
@@ -81,7 +179,7 @@ public:
     if (recv == NULL)
     {
       free(recv);
-      throw std::invalid_argument("Error in mraa::Spi::write");
+      throw std::invalid_argument("Error in SpiWithCS1::write");
     }
     free(recv);
   }
@@ -93,7 +191,7 @@ public:
     tx[0] = 0x88 | 0x80;
     if (spi_.transfer(tx, rx, 25) != mraa::SUCCESS)
     {
-      throw std::invalid_argument("Error in mraa::Spi::transfer");
+      throw std::invalid_argument("Error in SpiWithCS1::transfer");
     }
 
     dig_T1_ = (rx[2] << 8) | rx[1];
@@ -124,7 +222,7 @@ public:
     tx[0] = 0xF7 | 0x80;
     if (spi_.transfer(tx, rx, 9) != mraa::SUCCESS)
     {
-      throw std::invalid_argument("Error in mraa::Spi::transfer");
+      throw std::invalid_argument("Error in SpiWithCS1::transfer");
     }
     *pres_raw = rx[1];
     *pres_raw = ((*pres_raw) << 8) | rx[2];
@@ -184,7 +282,7 @@ public:
 class FlexSensorDriver
 {
 private:
-  mraa::Spi spi_;
+  SpiWithCS1 spi_;
   const int sensor_num_;
 
 public:
@@ -209,7 +307,7 @@ public:
       tx[0] = (0x18 | sensor_no) << 3;
       if (spi_.transfer(tx, rx, 3) != mraa::SUCCESS)
       {
-        throw std::invalid_argument("Error in mraa::Spi::transfer");
+        throw std::invalid_argument("Error in SpiWithCS1::transfer");
       }
       uint16_t value = (rx[0] & 0x01) << 11;
       value |= rx[1] << 3;
