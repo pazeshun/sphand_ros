@@ -159,6 +159,8 @@ SMBus PEC                        no
 I2C Block Write                  yes
 I2C Block Read                   yes
 ```
+In new UP Board, `/dev/i2c-5` is used, but `i2cdetect -F 1` is checked in auto-starting script for backward compatibility.
+See <https://github.com/pazeshun/sphand_ros/issues/12> for background.
 
 ## Usage
 
