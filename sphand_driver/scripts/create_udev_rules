@@ -8,6 +8,7 @@ echo ""
 sudo cp `rospack find sphand_driver`/udev/60-i2c.rules /etc/udev/rules.d
 sudo cp `rospack find sphand_driver`/udev/70-spi.rules /etc/udev/rules.d
 sudo cp `rospack find sphand_driver`/udev/80-dxhub.rules /etc/udev/rules.d
+sudo cp `rospack find sphand_driver`/udev/90-gpio.rules /etc/udev/rules.d
 
 echo ""
 echo "Restarting udev"
