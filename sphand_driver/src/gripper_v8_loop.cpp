@@ -54,6 +54,9 @@ public:
     , cs1_pin_(26)  // Pin number is MRAA Number in https://iotdk.intel.com/docs/master/mraa/up.html
     , mraa::Spi(bus, cs)
   {
+    // Small delay to allow udev rules to execute. Without this, GPIO writing just after reboot fails.
+    // See https://wiki.up-community.org/MRAA/UPM
+    usleep(100 * 1000);
     cs1_pin_.dir(mraa::DIR_OUT);
     cs1_pin_.write(1);
   }
