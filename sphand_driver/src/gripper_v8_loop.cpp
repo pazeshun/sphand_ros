@@ -604,7 +604,8 @@ public:
     , vcnl4040_array_(i2c_mux.size(), Vcnl4040Mraa())
     , vl53l0x_array_(new Vl53l0xMraa[i2c_mux.size()])
   {
-    // cf. https://forum.up-community.org/discussion/2402/i2c-400khz-and-pullup-resistors
+    // I2C is slow in old UP Board (https://forum.up-community.org/discussion/2402/i2c-400khz-and-pullup-resistors),
+    // but this may be fixed in new UP Board (https://github.com/pazeshun/sphand_ros/issues/14#issuecomment-543105693)
     i2c_.frequency(mraa::I2C_FAST);
     current_tof_array_.array.resize(i2c_mux_.size());
     // Initialize tof_read_order_
